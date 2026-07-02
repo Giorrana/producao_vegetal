@@ -1,5 +1,5 @@
 <?php
-require_once '../Banco/conecao.php';
+require_once '../Banco/conexao.php';
 require_once 'auth.php';
 
 verificar_login();
@@ -18,7 +18,7 @@ if ($id_plantio <= 0) {
 }
 
 // Verificar se o plantio existe
-$plantio_res = mysqli_query($conexao, "SELECT p.*, c.nome_cultura FROM plantios p JOIN culturas c ON p.id_cultura = c.id_cultura WHERE p.id_plantio = $id_plantio AND p.colhido = 0");
+$plantio_res = mysqli_query($conn, "SELECT p.*, c.nome_cultura FROM plantios p JOIN culturas c ON p.id_cultura = c.id_cultura WHERE p.id_plantio = $id_plantio AND p.colhido = 0");
 if (!$plantio_res || mysqli_num_rows($plantio_res) == 0) {
     header("Location: plantios_ativos.php?erro=plantio_invalido");
     exit;
@@ -27,7 +27,7 @@ $plantio = mysqli_fetch_assoc($plantio_res);
 $nome_cultura = htmlspecialchars($plantio['nome_cultura']);
 
 // Buscar adubos do estoque
-$adubos_res = mysqli_query($conexao, "SELECT * FROM estoque WHERE categoria = 'Adubo' ORDER BY nome_item ASC");
+$adubos_res = mysqli_query($conn, "SELECT * FROM estoque WHERE categoria = 'Adubo' ORDER BY nome_item ASC");
 $adubos = [];
 if ($adubos_res) {
     while ($row = mysqli_fetch_assoc($adubos_res)) {
@@ -42,8 +42,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     } else {
         $id_adubo   = intval($_POST['id_adubo'] ?? 0);
         $quantidade = floatval($_POST['quantidade'] ?? 0);
-        $data_cuidado = mysqli_real_escape_string($conexao, $_POST['data_cuidado'] ?? date('Y-m-d'));
-        $obs = mysqli_real_escape_string($conexao, $_POST['observacoes'] ?? '');
+        $data_cuidado = mysqli_real_escape_string($conn, $_POST['data_cuidado'] ?? date('Y-m-d'));
+        $obs = mysqli_real_escape_string($conn, $_POST['observacoes'] ?? '');
 
         if ($id_adubo <= 0) {
             $msg_erro = "Selecione um adubo válido.";
@@ -51,7 +51,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $msg_erro = "Informe uma quantidade válida maior que zero.";
         } else {
             // Verificar estoque disponível
-            $estoque_res = mysqli_query($conexao, "SELECT quantidade, unidade_medida, nome_item, nivel_alerta FROM estoque WHERE id_item = $id_adubo");
+            $estoque_res = mysqli_query($conn, "SELECT quantidade, unidade_medida, nome_item, nivel_alerta FROM estoque WHERE id_item = $id_adubo");
             $item_estoque = mysqli_fetch_assoc($estoque_res);
 
             if (!$item_estoque) {
@@ -59,7 +59,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             } elseif ($item_estoque['quantidade'] < $quantidade) {
                 $msg_erro = "Quantidade insuficiente no estoque! Disponível: " . number_format($item_estoque['quantidade'], 2, ',', '.') . " " . $item_estoque['unidade_medida'];
             } else {
-                mysqli_begin_transaction($conexao);
+                mysqli_begin_transaction($conn);
 
                 // 1. Registrar o cuidado na tabela cuidados_plantio
                 $ins_cuidado = "INSERT INTO cuidados_plantio (irrigar, adubar, data_cuidado, id_plantio) 
@@ -70,11 +70,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $novo_status = ($nova_qtd <= $item_estoque['nivel_alerta']) ? 'Alerta' : 'Normal';
                 $upd_estoque = "UPDATE estoque SET quantidade = $nova_qtd, status_estoque = '$novo_status' WHERE id_item = $id_adubo";
 
-                if (mysqli_query($conexao, $ins_cuidado) && mysqli_query($conexao, $upd_estoque)) {
-                    mysqli_commit($conexao);
+                if (mysqli_query($conn, $ins_cuidado) && mysqli_query($conn, $upd_estoque)) {
+                    mysqli_commit($conn);
                     $msg_sucesso = "Adubação registrada com sucesso! " . number_format($quantidade, 2, ',', '.') . " " . $item_estoque['unidade_medida'] . " de \"" . htmlspecialchars($item_estoque['nome_item']) . "\" aplicados.";
                     // Recarregar adubos para refletir nova quantidade
-                    $adubos_res2 = mysqli_query($conexao, "SELECT * FROM estoque WHERE categoria = 'Adubo' ORDER BY nome_item ASC");
+                    $adubos_res2 = mysqli_query($conn, "SELECT * FROM estoque WHERE categoria = 'Adubo' ORDER BY nome_item ASC");
                     $adubos = [];
                     if ($adubos_res2) {
                         while ($row = mysqli_fetch_assoc($adubos_res2)) {
@@ -82,8 +82,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                         }
                     }
                 } else {
-                    mysqli_rollback($conexao);
-                    $msg_erro = "Erro ao registrar adubação: " . mysqli_error($conexao);
+                    mysqli_rollback($conn);
+                    $msg_erro = "Erro ao registrar adubação: " . mysqli_error($conn);
                 }
             }
         }
@@ -91,7 +91,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 }
 
 // Histórico de adubações deste plantio
-$historico_res = mysqli_query($conexao, "SELECT * FROM cuidados_plantio WHERE id_plantio = $id_plantio AND adubar != 'não' ORDER BY data_cuidado DESC LIMIT 10");
+$historico_res = mysqli_query($conn, "SELECT * FROM cuidados_plantio WHERE id_plantio = $id_plantio AND adubar != 'não' ORDER BY data_cuidado DESC LIMIT 10");
 $historico_adubo = [];
 if ($historico_res) {
     while ($row = mysqli_fetch_assoc($historico_res)) {

@@ -1,5 +1,5 @@
 <?php
-require_once '../Banco/conecao.php';
+require_once '../Banco/conexao.php';
 require_once 'auth.php';
 
 // Se já estiver logado, vai direto para o dashboard
@@ -11,11 +11,11 @@ if (isset($_SESSION['user_id'])) {
 $erro = "";
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-    $email = mysqli_real_escape_string($conexao, $_POST['email']);
+    $email = mysqli_real_escape_string($conn, $_POST['email']);
     $senha = $_POST['senha'];
 
     $query = "SELECT * FROM usuarios WHERE email = '$email'";
-    $result = mysqli_query($conexao, $query);
+    $result = mysqli_query($conn, $query);
 
     if ($result && mysqli_num_rows($result) > 0) {
         $usuario_db = mysqli_fetch_assoc($result);

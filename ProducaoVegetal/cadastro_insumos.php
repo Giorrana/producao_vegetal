@@ -1,5 +1,5 @@
 <?php
-require_once '../Banco/conecao.php';
+require_once '../Banco/conexao.php';
 require_once 'auth.php';
 
 // Garantir login
@@ -17,7 +17,7 @@ $nivel_alerta = "";
 
 if ($editId) {
     $query = "SELECT * FROM estoque WHERE id_item = $editId";
-    $result = mysqli_query($conexao, $query);
+    $result = mysqli_query($conn, $query);
     if ($result && mysqli_num_rows($result) > 0) {
         $item = mysqli_fetch_assoc($result);
         $nome_item = $item['nome_item'];
@@ -34,10 +34,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     if (e_visitante()) {
         $msg_erro = "Acesso negado! Visitantes não podem alterar o estoque.";
     } else {
-        $nome_item = mysqli_real_escape_string($conexao, $_POST['nome_item']);
-        $categoria = mysqli_real_escape_string($conexao, $_POST['categoria']);
+        $nome_item = mysqli_real_escape_string($conn, $_POST['nome_item']);
+        $categoria = mysqli_real_escape_string($conn, $_POST['categoria']);
         $quantidade = floatval($_POST['quantidade']);
-        $unidade_medida = mysqli_real_escape_string($conexao, $_POST['unidade_medida']);
+        $unidade_medida = mysqli_real_escape_string($conn, $_POST['unidade_medida']);
         $nivel_alerta = !empty($_POST['nivel_alerta']) ? intval($_POST['nivel_alerta']) : 0;
         
         $status_estoque = ($quantidade <= $nivel_alerta) ? 'Alerta' : 'Normal';
@@ -52,22 +52,22 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 nivel_alerta = $nivel_alerta, 
                 status_estoque = '$status_estoque' 
                 WHERE id_item = $editId";
-            if (mysqli_query($conexao, $update_query)) {
+            if (mysqli_query($conn, $update_query)) {
                 header("Location: estoque.php?msg=editado");
                 exit;
             } else {
-                $msg_erro = "Erro ao atualizar item do estoque: " . mysqli_error($conexao);
+                $msg_erro = "Erro ao atualizar item do estoque: " . mysqli_error($conn);
             }
         } else {
             $insert_query = "INSERT INTO estoque 
                 (nome_item, categoria, quantidade, unidade_medida, nivel_alerta, status_estoque, id_usuario) 
                 VALUES 
                 ('$nome_item', '$categoria', $quantidade, '$unidade_medida', $nivel_alerta, '$status_estoque', $id_usuario)";
-            if (mysqli_query($conexao, $insert_query)) {
+            if (mysqli_query($conn, $insert_query)) {
                 header("Location: estoque.php?msg=criado");
                 exit;
             } else {
-                $msg_erro = "Erro ao adicionar item ao estoque: " . mysqli_error($conexao);
+                $msg_erro = "Erro ao adicionar item ao estoque: " . mysqli_error($conn);
             }
         }
     }

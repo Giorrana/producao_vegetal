@@ -1,5 +1,5 @@
 <?php
-require_once '../Banco/conecao.php';
+require_once '../Banco/conexao.php';
 require_once 'auth.php';
 
 // Garantir login
@@ -18,17 +18,17 @@ if (isset($_GET['action'])) {
 
         if ($_GET['action'] === 'irrigar' && $id > 0) {
             // Incrementa dias_irrigados e alterna estado de irrigado
-            $q = mysqli_query($conexao, "SELECT irrigado, dias_irrigados FROM plantios WHERE id_plantio = $id");
+            $q = mysqli_query($conn, "SELECT irrigado, dias_irrigados FROM plantios WHERE id_plantio = $id");
             if ($q && $row = mysqli_fetch_assoc($q)) {
                 $novo_estado = $row['irrigado'] == 1 ? 0 : 1;
                 // Se estava NÃO irrigado e está sendo marcado como irrigado, incrementa dias_irrigados
                 $inc_dias = ($novo_estado == 1) ? ', dias_irrigados = COALESCE(dias_irrigados, 0) + 1' : '';
-                $update = mysqli_query($conexao, "UPDATE plantios SET irrigado = $novo_estado$inc_dias WHERE id_plantio = $id");
+                $update = mysqli_query($conn, "UPDATE plantios SET irrigado = $novo_estado$inc_dias WHERE id_plantio = $id");
                 if ($update) {
                     header("Location: plantios_ativos.php?filtro=$filtro");
                     exit;
                 } else {
-                    $msg_erro = "Erro ao atualizar irrigação: " . mysqli_error($conexao);
+                    $msg_erro = "Erro ao atualizar irrigação: " . mysqli_error($conn);
                 }
             }
         }
@@ -43,7 +43,7 @@ if (isset($_GET['action'])) {
                 $msg_erro = "Por favor, insira uma quantidade de colheita válida maior que zero.";
             } else {
                 // Iniciar transação para garantir integridade
-                mysqli_begin_transaction($conexao);
+                mysqli_begin_transaction($conn);
                 
                 // 1. Inserir na tabela colheitas
                 $insert_colheita = "INSERT INTO colheitas (data_colheita, quantidade_colhida, id_plantio) VALUES (CURRENT_DATE(), $qtd_colhida, $id)";
@@ -51,13 +51,13 @@ if (isset($_GET['action'])) {
                 // 2. Marcar plantio como colhido = 1
                 $update_plantio = "UPDATE plantios SET colhido = 1, progresso_colheita = '100' WHERE id_plantio = $id";
                 
-                if (mysqli_query($conexao, $insert_colheita) && mysqli_query($conexao, $update_plantio)) {
-                    mysqli_commit($conexao);
+                if (mysqli_query($conn, $insert_colheita) && mysqli_query($conn, $update_plantio)) {
+                    mysqli_commit($conn);
                     header("Location: historico.php?msg=colheita_sucesso");
                     exit;
                 } else {
-                    mysqli_rollback($conexao);
-                    $msg_erro = "Erro ao registrar colheita: " . mysqli_error($conexao);
+                    mysqli_rollback($conn);
+                    $msg_erro = "Erro ao registrar colheita: " . mysqli_error($conn);
                 }
             }
         }
@@ -78,7 +78,7 @@ if ($filtro === 'Horta') {
 }
 
 $query .= " ORDER BY p.id_plantio DESC";
-$result = mysqli_query($conexao, $query);
+$result = mysqli_query($conn, $query);
 $plantios = [];
 
 if ($result) {

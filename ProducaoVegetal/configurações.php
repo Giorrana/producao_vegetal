@@ -1,5 +1,5 @@
 <?php
-require_once '../Banco/conecao.php';
+require_once '../Banco/conexao.php';
 require_once 'auth.php';
 
 // Garantir login

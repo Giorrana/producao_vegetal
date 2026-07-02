@@ -1,20 +1,20 @@
 <?php
-require_once '../Banco/conecao.php';
+require_once '../Banco/conexao.php';
 require_once 'auth.php';
 
 // Garantir login
 verificar_login();
 
 // 1. Quilos colhidos por categoria (Horta vs Pomar)
-$q_horta = mysqli_query($conexao, "SELECT SUM(c.quantidade_colhida) as total FROM colheitas c JOIN plantios p ON c.id_plantio = p.id_plantio JOIN culturas cult ON p.id_cultura = cult.id_cultura WHERE cult.id_categoria = 1");
+$q_horta = mysqli_query($conn, "SELECT SUM(c.quantidade_colhida) as total FROM colheitas c JOIN plantios p ON c.id_plantio = p.id_plantio JOIN culturas cult ON p.id_cultura = cult.id_cultura WHERE cult.id_categoria = 1");
 $total_horta = $q_horta ? (mysqli_fetch_assoc($q_horta)['total'] ?? 0) : 0;
 
-$q_pomar = mysqli_query($conexao, "SELECT SUM(c.quantidade_colhida) as total FROM colheitas c JOIN plantios p ON c.id_plantio = p.id_plantio JOIN culturas cult ON p.id_cultura = cult.id_cultura WHERE cult.id_categoria = 2");
+$q_pomar = mysqli_query($conn, "SELECT SUM(c.quantidade_colhida) as total FROM colheitas c JOIN plantios p ON c.id_plantio = p.id_plantio JOIN culturas cult ON p.id_cultura = cult.id_cultura WHERE cult.id_categoria = 2");
 $total_pomar = $q_pomar ? (mysqli_fetch_assoc($q_pomar)['total'] ?? 0) : 0;
 
 // 2. Produtividade Mensal (últimos 6 meses)
 $mensal = array_fill(1, 6, 0); // Jan a Jun
-$q_mes = mysqli_query($conexao, "SELECT MONTH(data_colheita) as mes, SUM(quantidade_colhida) as total FROM colheitas WHERE data_colheita >= '2026-01-01' AND data_colheita <= '2026-06-30' GROUP BY MONTH(data_colheita)");
+$q_mes = mysqli_query($conn, "SELECT MONTH(data_colheita) as mes, SUM(quantidade_colhida) as total FROM colheitas WHERE data_colheita >= '2026-01-01' AND data_colheita <= '2026-06-30' GROUP BY MONTH(data_colheita)");
 if ($q_mes) {
     while ($row = mysqli_fetch_assoc($q_mes)) {
         $m = intval($row['mes']);
@@ -25,7 +25,7 @@ if ($q_mes) {
 }
 
 // 3. Atividades Recentes (últimas 5 colheitas)
-$q_recentes = mysqli_query($conexao, "SELECT c.*, cult.nome_cultura FROM colheitas c JOIN plantios p ON c.id_plantio = p.id_plantio JOIN culturas cult ON p.id_cultura = cult.id_cultura ORDER BY c.id_colheita DESC LIMIT 5");
+$q_recentes = mysqli_query($conn, "SELECT c.*, cult.nome_cultura FROM colheitas c JOIN plantios p ON c.id_plantio = p.id_plantio JOIN culturas cult ON p.id_cultura = cult.id_cultura ORDER BY c.id_colheita DESC LIMIT 5");
 $recentes = [];
 if ($q_recentes) {
     while ($row = mysqli_fetch_assoc($q_recentes)) {

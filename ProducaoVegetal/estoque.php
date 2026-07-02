@@ -1,5 +1,5 @@
 <?php
-require_once '../Banco/conecao.php';
+require_once '../Banco/conexao.php';
 require_once 'auth.php';
 
 // Garantir login
@@ -18,10 +18,10 @@ if (isset($_GET['action'])) {
         
         if ($_GET['action'] === 'delete' && $id > 0) {
             $delete_query = "DELETE FROM estoque WHERE id_item = $id";
-            if (mysqli_query($conexao, $delete_query)) {
+            if (mysqli_query($conn, $delete_query)) {
                 $msg_sucesso = "Insumo removido com sucesso!";
             } else {
-                $msg_erro = "Erro ao remover insumo: " . mysqli_error($conexao);
+                $msg_erro = "Erro ao remover insumo: " . mysqli_error($conn);
             }
         }
         
@@ -29,7 +29,7 @@ if (isset($_GET['action'])) {
             $val = floatval($_GET['val']);
             
             // Buscar quantidade atual
-            $q = mysqli_query($conexao, "SELECT quantidade, nivel_alerta FROM estoque WHERE id_item = $id");
+            $q = mysqli_query($conn, "SELECT quantidade, nivel_alerta FROM estoque WHERE id_item = $id");
             if ($q && mysqli_fetch_assoc($q)) {
                 mysqli_data_seek($q, 0);
                 $item = mysqli_fetch_assoc($q);
@@ -38,11 +38,11 @@ if (isset($_GET['action'])) {
                 if ($new_qty >= 0) {
                     $status_estoque = ($new_qty <= $item['nivel_alerta']) ? 'Alerta' : 'Normal';
                     $update_query = "UPDATE estoque SET quantidade = $new_qty, status_estoque = '$status_estoque' WHERE id_item = $id";
-                    if (mysqli_query($conexao, $update_query)) {
+                    if (mysqli_query($conn, $update_query)) {
                         header("Location: estoque.php?filtro=$filtro");
                         exit;
                     } else {
-                        $msg_erro = "Erro ao atualizar quantidade: " . mysqli_error($conexao);
+                        $msg_erro = "Erro ao atualizar quantidade: " . mysqli_error($conn);
                     }
                 } else {
                     $msg_erro = "A quantidade não pode ser menor que zero!";
@@ -63,7 +63,7 @@ if ($filtro === 'Semente') {
 }
 $query .= " ORDER BY id_item DESC";
 
-$result = mysqli_query($conexao, $query);
+$result = mysqli_query($conn, $query);
 $estoque = [];
 if ($result) {
     while ($row = mysqli_fetch_assoc($result)) {

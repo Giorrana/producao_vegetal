@@ -1,5 +1,5 @@
 <?php
-require_once '../Banco/conecao.php';
+require_once '../Banco/conexao.php';
 require_once 'auth.php';
 
 // Garantir login
@@ -10,7 +10,7 @@ $msg_sucesso = "";
 
 // Buscar culturas para preencher o select
 $culturas_query = "SELECT id_cultura, nome_cultura FROM culturas ORDER BY nome_cultura ASC";
-$culturas_result = mysqli_query($conexao, $culturas_query);
+$culturas_result = mysqli_query($conn, $culturas_query);
 $culturas = [];
 if ($culturas_result) {
     while ($row = mysqli_fetch_assoc($culturas_result)) {
@@ -23,10 +23,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $msg_erro = "Acesso negado! Visitantes não podem registrar plantios.";
     } else {
         $id_cultura = intval($_POST['id_cultura']);
-        $data_plantio = mysqli_real_escape_string($conexao, $_POST['data_plantio']);
-        $local_canteiro = mysqli_real_escape_string($conexao, $_POST['local_canteiro']);
+        $data_plantio = mysqli_real_escape_string($conn, $_POST['data_plantio']);
+        $local_canteiro = mysqli_real_escape_string($conn, $_POST['local_canteiro']);
         $quantidade_plantada = intval($_POST['quantidade_plantada']);
-        $notas_plantio = mysqli_real_escape_string($conexao, $_POST['notas_plantio']);
+        $notas_plantio = mysqli_real_escape_string($conn, $_POST['notas_plantio']);
         
         // Progresso padrão inicial 0%, colhido 0
         $progresso_colheita = "0";
@@ -36,11 +36,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             VALUES 
             ($id_cultura, '$data_plantio', '$local_canteiro', $quantidade_plantada, '$progresso_colheita', '$notas_plantio', 0, 0)";
             
-        if (mysqli_query($conexao, $insert_query)) {
+        if (mysqli_query($conn, $insert_query)) {
             header("Location: plantios_ativos.php?msg=criado");
             exit;
         } else {
-            $msg_erro = "Erro ao registrar plantio: " . mysqli_error($conexao);
+            $msg_erro = "Erro ao registrar plantio: " . mysqli_error($conn);
         }
     }
 }

@@ -1,5 +1,5 @@
 <?php
-require_once '../Banco/conecao.php';
+require_once '../Banco/conexao.php';
 require_once 'auth.php';
 
 // Garantir login
@@ -22,7 +22,7 @@ $estacao_inverno = 0;
 // Se for edição, busca no banco
 if ($editId) {
     $query = "SELECT * FROM culturas WHERE id_cultura = $editId";
-    $result = mysqli_query($conexao, $query);
+    $result = mysqli_query($conn, $query);
     if ($result && mysqli_num_rows($result) > 0) {
         $cultura = mysqli_fetch_assoc($result);
         $nome_cultura = $cultura['nome_cultura'];
@@ -44,9 +44,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     if (e_visitante()) {
         $msg_erro = "Acesso negado! Visitantes não podem adicionar ou editar culturas.";
     } else {
-        $nome_cultura = mysqli_real_escape_string($conexao, $_POST['nome_cultura']);
+        $nome_cultura = mysqli_real_escape_string($conn, $_POST['nome_cultura']);
         $id_categoria = intval($_POST['id_categoria']);
-        $tempo_medio_crescimento = mysqli_real_escape_string($conexao, $_POST['tempo_medio_crescimento']);
+        $tempo_medio_crescimento = mysqli_real_escape_string($conn, $_POST['tempo_medio_crescimento']);
         
         $estacao_primavera = isset($_POST['estacao_primavera']) ? 'Primavera' : '';
         $estacao_verao    = isset($_POST['estacao_verao'])    ? 'Verão'    : '';
@@ -61,7 +61,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         if (!empty($estacao_inverno))  $estacoes_ativas[] = "Inverno";
         $estacao_ano_ideal = implode('/', $estacoes_ativas);
 
-        $observacoes = mysqli_real_escape_string($conexao, $_POST['observacoes']);
+        $observacoes = mysqli_real_escape_string($conn, $_POST['observacoes']);
         $id_usuario_atual = $_SESSION['user_id'];
 
         if ($editId) {
@@ -76,22 +76,22 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 estacao_inverno = '$estacao_inverno', 
                 observacoes = '$observacoes' 
                 WHERE id_cultura = $editId";
-            if (mysqli_query($conexao, $update_query)) {
+            if (mysqli_query($conn, $update_query)) {
                 header("Location: culturas_cadastradas.php?msg=editado");
                 exit;
             } else {
-                $msg_erro = "Erro ao atualizar cultura: " . mysqli_error($conexao);
+                $msg_erro = "Erro ao atualizar cultura: " . mysqli_error($conn);
             }
         } else {
             $insert_query = "INSERT INTO culturas 
                 (nome_cultura, id_categoria, tempo_medio_crescimento, estacao_ano_ideal, estacao_primavera, estacao_verao, estacao_outono, estacao_inverno, observacoes, id_usuario) 
                 VALUES 
                 ('$nome_cultura', $id_categoria, '$tempo_medio_crescimento', '$estacao_ano_ideal', '$estacao_primavera', '$estacao_verao', '$estacao_outono', '$estacao_inverno', '$observacoes', $id_usuario_atual)";
-            if (mysqli_query($conexao, $insert_query)) {
+            if (mysqli_query($conn, $insert_query)) {
                 header("Location: culturas_cadastradas.php?msg=criado");
                 exit;
             } else {
-                $msg_erro = "Erro ao cadastrar cultura: " . mysqli_error($conexao);
+                $msg_erro = "Erro ao cadastrar cultura: " . mysqli_error($conn);
             }
         }
     }

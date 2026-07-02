@@ -1,5 +1,5 @@
 <?php
-require_once '../Banco/conecao.php';
+require_once '../Banco/conexao.php';
 require_once 'auth.php';
 
 // Garantir login
@@ -16,15 +16,15 @@ if (isset($_GET['action']) && $_GET['action'] === 'delete' && isset($_GET['id'])
         $id_del = intval($_GET['id']);
         
         // Verificar se a cultura está em uso em algum plantio
-        $check_plantio = mysqli_query($conexao, "SELECT id_plantio FROM plantios WHERE id_cultura = $id_del");
+        $check_plantio = mysqli_query($conn, "SELECT id_plantio FROM plantios WHERE id_cultura = $id_del");
         if (mysqli_num_rows($check_plantio) > 0) {
             $msg_erro = "Não é possível excluir esta cultura pois ela já está associada a um plantio ativo.";
         } else {
             $delete_query = "DELETE FROM culturas WHERE id_cultura = $id_del";
-            if (mysqli_query($conexao, $delete_query)) {
+            if (mysqli_query($conn, $delete_query)) {
                 $msg_sucesso = "Cultura excluída com sucesso!";
             } else {
-                $msg_erro = "Erro ao excluir cultura: " . mysqli_error($conexao);
+                $msg_erro = "Erro ao excluir cultura: " . mysqli_error($conn);
             }
         }
     }
@@ -44,7 +44,7 @@ if ($filtro === 'Horta') {
 }
 $query .= " ORDER BY c.id_cultura DESC";
 
-$result = mysqli_query($conexao, $query);
+$result = mysqli_query($conn, $query);
 $culturas = [];
 if ($result) {
     while ($row = mysqli_fetch_assoc($result)) {

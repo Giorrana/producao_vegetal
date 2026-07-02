@@ -1,12 +1,12 @@
 <?php
-require_once '../Banco/conecao.php';
+require_once '../Banco/conexao.php';
 require_once 'auth.php';
 
 $erro = "";
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-    $nome = mysqli_real_escape_string($conexao, $_POST['usuario']);
-    $email = mysqli_real_escape_string($conexao, $_POST['email']);
+    $nome = mysqli_real_escape_string($conn, $_POST['usuario']);
+    $email = mysqli_real_escape_string($conn, $_POST['email']);
     $senha = $_POST['senha'];
     $confirma_senha = $_POST['confirma-senha'];
 
@@ -15,7 +15,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     } else {
         // Verificar e-mail duplicado
         $check_query = "SELECT id_usuario FROM usuarios WHERE email = '$email'";
-        $check_result = mysqli_query($conexao, $check_query);
+        $check_result = mysqli_query($conn, $check_query);
 
         if ($check_result && mysqli_num_rows($check_result) > 0) {
             $erro = "Este e-mail já está cadastrado!";
@@ -24,11 +24,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $senha_hash = password_hash($senha, PASSWORD_DEFAULT);
             $insert_query = "INSERT INTO usuarios (nome, email, senha, perfil) VALUES ('$nome', '$email', '$senha_hash', 'visitante')";
             
-            if (mysqli_query($conexao, $insert_query)) {
+            if (mysqli_query($conn, $insert_query)) {
                 header("Location: index.php?cadastro=sucesso");
                 exit;
             } else {
-                $erro = "Erro ao cadastrar usuário: " . mysqli_error($conexao);
+                $erro = "Erro ao cadastrar usuário: " . mysqli_error($conn);
             }
         }
     }

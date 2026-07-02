@@ -1,24 +1,22 @@
 <?php
-require_once '../Banco/conecao.php';
+require_once '../Banco/conexao.php';
 require_once 'auth.php';
 
 // Garantir login
 verificar_login();
 
-// 1. Contagem de culturas e plantios ativos
-$q_culturas = mysqli_query($conexao, "SELECT id_cultura FROM culturas");
+$q_culturas = mysqli_query($conn, "SELECT id_cultura FROM culturas");
 $total_culturas = $q_culturas ? mysqli_num_rows($q_culturas) : 0;
 
-$q_plantios = mysqli_query($conexao, "SELECT id_plantio FROM plantios WHERE colhido = 0");
+$q_plantios = mysqli_query($conn, "SELECT id_plantio FROM plantios WHERE colhido = 0");
 $total_plantios = $q_plantios ? mysqli_num_rows($q_plantios) : 0;
 
-// 2. Contagem de itens no estoque
-$q_insumos = mysqli_query($conexao, "SELECT id_item FROM estoque");
+$q_insumos = mysqli_query($conn, "SELECT id_item FROM estoque");
 $total_insumos = $q_insumos ? mysqli_num_rows($q_insumos) : 0;
 
-// 3. Volume colhido total
-$q_colheita = mysqli_query($conexao, "SELECT SUM(quantidade_colhida) as total FROM colheitas");
+$q_colheita = mysqli_query($conn, "SELECT SUM(quantidade_colhida) AS total FROM colheitas");
 $total_colhido = 0;
+
 if ($q_colheita) {
     $row = mysqli_fetch_assoc($q_colheita);
     $total_colhido = $row['total'] ?? 0;

@@ -1,5 +1,5 @@
 <?php
-require_once '../Banco/conecao.php';
+require_once '../Banco/conexao.php';
 require_once 'auth.php';
 
 // Garantir login e restringir a admin
@@ -14,16 +14,16 @@ if (isset($_GET['action']) && $_GET['action'] === 'delete' && isset($_GET['id'])
     $id_del = intval($_GET['id']);
     
     // Garantir que não pode deletar a si mesmo ou outro admin por segurança
-    $check_user = mysqli_query($conexao, "SELECT perfil FROM usuarios WHERE id_usuario = $id_del");
+    $check_user = mysqli_query($conn, "SELECT perfil FROM usuarios WHERE id_usuario = $id_del");
     if ($check_user && $user_data = mysqli_fetch_assoc($check_user)) {
         if ($user_data['perfil'] === 'admin') {
             $msg_erro = "Ação inválida! Não é possível remover uma conta administradora.";
         } else {
             $delete_query = "DELETE FROM usuarios WHERE id_usuario = $id_del AND perfil = 'visitante'";
-            if (mysqli_query($conexao, $delete_query)) {
+            if (mysqli_query($conn, $delete_query)) {
                 $msg_sucesso = "Usuário visitante removido com sucesso!";
             } else {
-                $msg_erro = "Erro ao remover usuário: " . mysqli_error($conexao);
+                $msg_erro = "Erro ao remover usuário: " . mysqli_error($conn);
             }
         }
     } else {
@@ -33,7 +33,7 @@ if (isset($_GET['action']) && $_GET['action'] === 'delete' && isset($_GET['id'])
 
 // Buscar todos os visitantes
 $query = "SELECT * FROM usuarios WHERE perfil = 'visitante' ORDER BY nome ASC";
-$result = mysqli_query($conexao, $query);
+$result = mysqli_query($conn, $query);
 $visitantes = [];
 if ($result) {
     while ($row = mysqli_fetch_assoc($result)) {

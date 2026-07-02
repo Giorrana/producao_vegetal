@@ -1,5 +1,5 @@
 <?php
-require_once '../Banco/conecao.php';
+require_once '../Banco/conexao.php';
 require_once 'auth.php';
 
 // Garantir login
@@ -21,7 +21,7 @@ if ($filtro === 'Horta') {
 }
 
 $query .= " ORDER BY c.id_colheita DESC";
-$result = mysqli_query($conexao, $query);
+$result = mysqli_query($conn, $query);
 $historico = [];
 
 if ($result) {
