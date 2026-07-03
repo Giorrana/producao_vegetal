@@ -5,6 +5,8 @@ require_once 'auth.php';
 // Garantir login
 verificar_login();
 
+$id_usuario = $_SESSION['user_id'];
+
 $filtro = isset($_GET['filtro']) ? $_GET['filtro'] : 'Todos';
 
 // Query das colheitas
@@ -12,12 +14,13 @@ $query = "SELECT c.*, cult.nome_cultura, cat.nome_categoria
           FROM colheitas c 
           JOIN plantios p ON c.id_plantio = p.id_plantio 
           JOIN culturas cult ON p.id_cultura = cult.id_cultura 
-          JOIN categorias cat ON cult.id_categoria = cat.id_categoria";
+          JOIN categorias cat ON cult.id_categoria = cat.id_categoria
+          WHERE cult.id_usuario = $id_usuario";
 
 if ($filtro === 'Horta') {
-    $query .= " WHERE cat.nome_categoria = 'Horta'";
+    $query .= " AND cat.nome_categoria = 'Horta'";
 } elseif ($filtro === 'Pomar') {
-    $query .= " WHERE cat.nome_categoria = 'Pomar'";
+    $query .= " AND cat.nome_categoria = 'Pomar'";
 }
 
 $query .= " ORDER BY c.id_colheita DESC";
@@ -78,6 +81,15 @@ $activePage = 'historico';
                         </div>
                     <?php endif; ?>
 
+                    <div class="export-bar" style="display: flex; gap: 8px; margin-bottom: 14px; justify-content: flex-end;">
+                        <button class="btn-export" onclick="exportTableToExcel('tbl-historico', 'historico_colheitas')" style="display: inline-flex; align-items: center; gap: 6px; padding: 8px 16px; border: 1.5px solid var(--border-color); background: var(--form-bg,#f9fafb); border-radius: 10px; font-size: 12px; font-weight: 700; cursor: pointer; color: var(--dark-green);">
+                            <i class="fa-solid fa-file-excel"></i> Exportar Excel
+                        </button>
+                        <button class="btn-export" onclick="exportToPDF()" style="display: inline-flex; align-items: center; gap: 6px; padding: 8px 16px; border: 1.5px solid var(--border-color); background: var(--form-bg,#f9fafb); border-radius: 10px; font-size: 12px; font-weight: 700; cursor: pointer; color: var(--dark-green);">
+                            <i class="fa-solid fa-file-pdf"></i> Exportar PDF
+                        </button>
+                    </div>
+
                     <div class="filters-container">
                         <a href="historico.php?filtro=Todos" class="filter-btn <?php echo $filtro === 'Todos' ? 'active' : 'inactive'; ?>">Todos</a>
                         <a href="historico.php?filtro=Horta" class="filter-btn <?php echo $filtro === 'Horta' ? 'active' : 'inactive'; ?>">Horta</a>
@@ -121,11 +133,33 @@ $activePage = 'historico';
                         <?php endif; ?>
                     </div>
 
+                    <table id="tbl-historico" style="display: none;">
+                        <thead>
+                            <tr>
+                                <th>Cultura</th>
+                                <th>Categoria</th>
+                                <th>Data da Colheita</th>
+                                <th>Quantidade (kg)</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <?php foreach ($historico as $item): ?>
+                                <tr>
+                                    <td><?php echo htmlspecialchars($item['nome_cultura']); ?></td>
+                                    <td><?php echo htmlspecialchars($item['nome_categoria']); ?></td>
+                                    <td><?php echo date('d/m/Y', strtotime($item['data_colheita'])); ?></td>
+                                    <td><?php echo number_format($item['quantidade_colhida'], 2, ',', '.'); ?></td>
+                                </tr>
+                            <?php endforeach; ?>
+                        </tbody>
+                    </table>
+
                 </div>
             </main>
         </div>
     </div>
 
+    <script src="export.js"></script>
     <script>
         function toggleMenu() {
             const sidebar = document.getElementById('sidebar');

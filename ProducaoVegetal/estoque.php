@@ -9,6 +9,8 @@ $msg_erro = "";
 $msg_sucesso = "";
 $filtro = isset($_GET['filtro']) ? $_GET['filtro'] : 'Todos';
 
+$id_usuario = $_SESSION['user_id'];
+
 // Lógica de ações (Exclusão e Ajuste Rápido de Quantidade)
 if (isset($_GET['action'])) {
     if (e_visitante()) {
@@ -17,7 +19,7 @@ if (isset($_GET['action'])) {
         $id = isset($_GET['id']) ? intval($_GET['id']) : 0;
         
         if ($_GET['action'] === 'delete' && $id > 0) {
-            $delete_query = "DELETE FROM estoque WHERE id_item = $id";
+            $delete_query = "DELETE FROM estoque WHERE id_item = $id AND id_usuario = $id_usuario";
             if (mysqli_query($conn, $delete_query)) {
                 $msg_sucesso = "Insumo removido com sucesso!";
             } else {
@@ -29,7 +31,7 @@ if (isset($_GET['action'])) {
             $val = floatval($_GET['val']);
             
             // Buscar quantidade atual
-            $q = mysqli_query($conn, "SELECT quantidade, nivel_alerta FROM estoque WHERE id_item = $id");
+            $q = mysqli_query($conn, "SELECT quantidade, nivel_alerta FROM estoque WHERE id_item = $id AND id_usuario = $id_usuario");
             if ($q && mysqli_fetch_assoc($q)) {
                 mysqli_data_seek($q, 0);
                 $item = mysqli_fetch_assoc($q);
@@ -37,7 +39,7 @@ if (isset($_GET['action'])) {
                 
                 if ($new_qty >= 0) {
                     $status_estoque = ($new_qty <= $item['nivel_alerta']) ? 'Alerta' : 'Normal';
-                    $update_query = "UPDATE estoque SET quantidade = $new_qty, status_estoque = '$status_estoque' WHERE id_item = $id";
+                    $update_query = "UPDATE estoque SET quantidade = $new_qty, status_estoque = '$status_estoque' WHERE id_item = $id AND id_usuario = $id_usuario";
                     if (mysqli_query($conn, $update_query)) {
                         header("Location: estoque.php?filtro=$filtro");
                         exit;
@@ -53,13 +55,13 @@ if (isset($_GET['action'])) {
 }
 
 // Buscar itens do estoque
-$query = "SELECT * FROM estoque";
+$query = "SELECT * FROM estoque WHERE id_usuario = $id_usuario";
 if ($filtro === 'Semente') {
-    $query .= " WHERE categoria = 'Semente'";
+    $query .= " AND categoria = 'Semente'";
 } elseif ($filtro === 'Adubo') {
-    $query .= " WHERE categoria = 'Adubo'";
+    $query .= " AND categoria = 'Adubo'";
 } elseif ($filtro === 'Defensivo') {
-    $query .= " WHERE categoria = 'Defensivo'";
+    $query .= " AND categoria = 'Defensivo'";
 }
 $query .= " ORDER BY id_item DESC";
 
@@ -131,6 +133,15 @@ $activePage = 'estoque';
                             ?>
                         </div>
                     <?php endif; ?>
+
+                    <div class="export-bar" style="display: flex; gap: 8px; margin-bottom: 14px; justify-content: flex-end;">
+                        <button class="btn-export" onclick="exportTableToExcel('tbl-estoque', 'estoque_insumos')" style="display: inline-flex; align-items: center; gap: 6px; padding: 8px 16px; border: 1.5px solid var(--border-color); background: var(--form-bg,#f9fafb); border-radius: 10px; font-size: 12px; font-weight: 700; cursor: pointer; color: var(--dark-green);">
+                            <i class="fa-solid fa-file-excel"></i> Exportar Excel
+                        </button>
+                        <button class="btn-export" onclick="exportToPDF()" style="display: inline-flex; align-items: center; gap: 6px; padding: 8px 16px; border: 1.5px solid var(--border-color); background: var(--form-bg,#f9fafb); border-radius: 10px; font-size: 12px; font-weight: 700; cursor: pointer; color: var(--dark-green);">
+                            <i class="fa-solid fa-file-pdf"></i> Exportar PDF
+                        </button>
+                    </div>
 
                     <!-- FILTROS -->
                     <div class="filters-container">
@@ -205,11 +216,44 @@ $activePage = 'estoque';
                         <?php endif; ?>
                     </div>
 
+                    <table id="tbl-estoque" style="display: none;">
+                        <thead>
+                            <tr>
+                                <th>Item</th>
+                                <th>Categoria</th>
+                                <th>Quantidade</th>
+                                <th>Unidade</th>
+                                <th>Lote Fabricante</th>
+                                <th>Validade</th>
+                                <th>Custo Unitário</th>
+                                <th>Custo Total</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <?php foreach ($estoque as $item): 
+                                $custo_u = floatval($item['custo_aquisicao'] ?? 0);
+                                $custo_t = $item['quantidade'] * $custo_u;
+                            ?>
+                                <tr>
+                                    <td><?php echo htmlspecialchars($item['nome_item']); ?></td>
+                                    <td><?php echo htmlspecialchars($item['categoria']); ?></td>
+                                    <td><?php echo number_format($item['quantidade'], 2, ',', '.'); ?></td>
+                                    <td><?php echo htmlspecialchars($item['unidade_medida']); ?></td>
+                                    <td><?php echo htmlspecialchars($item['lote_fabricante'] ?? '—'); ?></td>
+                                    <td><?php echo $item['data_validade'] ? date('d/m/Y', strtotime($item['data_validade'])) : '—'; ?></td>
+                                    <td>R$ <?php echo number_format($custo_u, 2, ',', '.'); ?></td>
+                                    <td>R$ <?php echo number_format($custo_t, 2, ',', '.'); ?></td>
+                                </tr>
+                            <?php endforeach; ?>
+                        </tbody>
+                    </table>
+
                 </div>
             </main>
         </div>
     </div>
 
+    <script src="export.js"></script>
     <script>
         function toggleMenu() {
             const sidebar = document.getElementById('sidebar');

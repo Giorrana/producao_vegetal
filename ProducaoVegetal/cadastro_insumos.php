@@ -2,73 +2,71 @@
 require_once '../Banco/conexao.php';
 require_once 'auth.php';
 
-// Garantir login
 verificar_login();
+
+// Somente Admin pode editar estoque
+if (!e_admin()) {
+    header("Location: estoque.php?erro=restrito");
+    exit;
+}
 
 $editId = isset($_GET['editId']) ? intval($_GET['editId']) : null;
 $msg_erro = "";
-$msg_sucesso = "";
 
-$nome_item = "";
+// Valores padrão
+$nome_item = $categoria = $unidade_medida = $lote_fabricante = "";
+$quantidade = $nivel_alerta = $custo_aquisicao = "";
+$data_validade = "";
 $categoria = "Semente";
-$quantidade = "";
 $unidade_medida = "Kg";
-$nivel_alerta = "";
 
 if ($editId) {
-    $query = "SELECT * FROM estoque WHERE id_item = $editId";
-    $result = mysqli_query($conn, $query);
-    if ($result && mysqli_num_rows($result) > 0) {
-        $item = mysqli_fetch_assoc($result);
-        $nome_item = $item['nome_item'];
-        $categoria = $item['categoria'];
-        $quantidade = $item['quantidade'];
+    $stmt = $conn->prepare("SELECT * FROM estoque WHERE id_item = ?");
+    $stmt->bind_param("i", $editId);
+    $stmt->execute();
+    $result = $stmt->get_result();
+    if ($result && $result->num_rows > 0) {
+        $item = $result->fetch_assoc();
+        $nome_item      = $item['nome_item'];
+        $categoria      = $item['categoria'];
+        $quantidade     = $item['quantidade'];
         $unidade_medida = $item['unidade_medida'];
-        $nivel_alerta = $item['nivel_alerta'];
+        $nivel_alerta   = $item['nivel_alerta'];
+        $data_validade  = $item['data_validade'] ?? '';
+        $lote_fabricante= $item['lote_fabricante'] ?? '';
+        $custo_aquisicao= $item['custo_aquisicao'] ?? '';
     } else {
         $editId = null;
     }
 }
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-    if (e_visitante()) {
-        $msg_erro = "Acesso negado! Visitantes não podem alterar o estoque.";
-    } else {
-        $nome_item = mysqli_real_escape_string($conn, $_POST['nome_item']);
-        $categoria = mysqli_real_escape_string($conn, $_POST['categoria']);
-        $quantidade = floatval($_POST['quantidade']);
-        $unidade_medida = mysqli_real_escape_string($conn, $_POST['unidade_medida']);
-        $nivel_alerta = !empty($_POST['nivel_alerta']) ? intval($_POST['nivel_alerta']) : 0;
-        
-        $status_estoque = ($quantidade <= $nivel_alerta) ? 'Alerta' : 'Normal';
-        $id_usuario = $_SESSION['user_id'];
+    $nome_item       = trim($_POST['nome_item']);
+    $categoria       = trim($_POST['categoria']);
+    $quantidade      = floatval($_POST['quantidade']);
+    $unidade_medida  = trim($_POST['unidade_medida']);
+    $nivel_alerta    = !empty($_POST['nivel_alerta']) ? intval($_POST['nivel_alerta']) : 0;
+    $data_validade   = !empty($_POST['data_validade']) ? $_POST['data_validade'] : null;
+    $lote_fabricante = trim($_POST['lote_fabricante'] ?? '');
+    $custo_aquisicao = !empty($_POST['custo_aquisicao']) ? floatval($_POST['custo_aquisicao']) : null;
+    $status_estoque  = ($quantidade <= $nivel_alerta) ? 'Alerta' : 'Normal';
+    $id_usuario      = $_SESSION['user_id'];
 
+    if (empty($nome_item) || empty($categoria)) {
+        $msg_erro = "Preencha todos os campos obrigatórios.";
+    } else {
         if ($editId) {
-            $update_query = "UPDATE estoque SET 
-                nome_item = '$nome_item', 
-                categoria = '$categoria', 
-                quantidade = $quantidade, 
-                unidade_medida = '$unidade_medida', 
-                nivel_alerta = $nivel_alerta, 
-                status_estoque = '$status_estoque' 
-                WHERE id_item = $editId";
-            if (mysqli_query($conn, $update_query)) {
-                header("Location: estoque.php?msg=editado");
-                exit;
-            } else {
-                $msg_erro = "Erro ao atualizar item do estoque: " . mysqli_error($conn);
-            }
+            $stmt = $conn->prepare("UPDATE estoque SET nome_item=?, categoria=?, quantidade=?, unidade_medida=?, nivel_alerta=?, status_estoque=?, data_validade=?, lote_fabricante=?, custo_aquisicao=? WHERE id_item=?");
+            $stmt->bind_param("ssdsssssd i", $nome_item, $categoria, $quantidade, $unidade_medida, $nivel_alerta, $status_estoque, $data_validade, $lote_fabricante, $custo_aquisicao, $editId);
+            if ($stmt->execute()) {
+                header("Location: estoque.php?msg=editado"); exit;
+            } else { $msg_erro = "Erro ao atualizar: " . $stmt->error; }
         } else {
-            $insert_query = "INSERT INTO estoque 
-                (nome_item, categoria, quantidade, unidade_medida, nivel_alerta, status_estoque, id_usuario) 
-                VALUES 
-                ('$nome_item', '$categoria', $quantidade, '$unidade_medida', $nivel_alerta, '$status_estoque', $id_usuario)";
-            if (mysqli_query($conn, $insert_query)) {
-                header("Location: estoque.php?msg=criado");
-                exit;
-            } else {
-                $msg_erro = "Erro ao adicionar item ao estoque: " . mysqli_error($conn);
-            }
+            $stmt = $conn->prepare("INSERT INTO estoque (nome_item, categoria, quantidade, unidade_medida, nivel_alerta, status_estoque, id_usuario, data_validade, lote_fabricante, custo_aquisicao) VALUES (?,?,?,?,?,?,?,?,?,?)");
+            $stmt->bind_param("ssdsssissd", $nome_item, $categoria, $quantidade, $unidade_medida, $nivel_alerta, $status_estoque, $id_usuario, $data_validade, $lote_fabricante, $custo_aquisicao);
+            if ($stmt->execute()) {
+                header("Location: estoque.php?msg=criado"); exit;
+            } else { $msg_erro = "Erro ao inserir: " . $stmt->error; }
         }
     }
 }
@@ -80,96 +78,94 @@ $activePage = 'estoque';
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>AgroGestão - Novo Estoque</title>
-    
+    <title>AgroGestão - <?php echo $editId ? 'Editar Insumo' : 'Novo Insumo'; ?></title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;700;900&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <link rel="stylesheet" href="style.css">
-
-    <script>
-        if (localStorage.getItem('agro_theme') === 'dark') {
-            document.documentElement.classList.add('dark-theme');
-        }
-    </script>
+    <script>if (localStorage.getItem('agro_theme') === 'dark') document.documentElement.classList.add('dark-theme');</script>
 </head>
 <body>
-    <div class="app-layout">
-        
-        <?php include 'sidebar.php'; ?>
+<div class="app-layout">
+    <?php include 'sidebar.php'; ?>
+    <div class="main-wrapper">
+        <header class="topbar">
+            <div class="topbar-left">
+                <button class="menu-btn" onclick="toggleMenu()"><i class="fa-solid fa-bars"></i></button>
+                <div class="topbar-title"><?php echo $editId ? 'Editar Insumo' : 'Cadastro de Insumos'; ?></div>
+            </div>
+        </header>
+        <main class="main-content">
 
-        <div class="main-wrapper">
-            <header class="topbar">
-                <div class="topbar-left">
-                    <button class="menu-btn" onclick="toggleMenu()"><i class="fa-solid fa-bars"></i></button>
-                    <div class="topbar-title" id="page-action-title"><?php echo $editId ? "Editar Item" : "Cadastro de Insumos"; ?></div>
+            <?php if (!empty($msg_erro)): ?>
+                <div style="background:#fee2e2;color:#ef4444;border:1px solid #fca5a5;padding:12px;border-radius:8px;margin-bottom:16px;font-weight:700;">
+                    <i class="fa-solid fa-circle-exclamation"></i> <?php echo htmlspecialchars($msg_erro); ?>
                 </div>
-            </header>
+            <?php endif; ?>
 
-            <main class="main-content">
-                
-                <?php if (e_visitante()): ?>
-                    <div style="background-color: #fee2e2; color: #ef4444; border: 1px solid #fca5a5; padding: 15px; border-radius: 8px; margin-bottom: 20px; font-weight: 700; display: flex; align-items: center; gap: 10px;">
-                        <i class="fa-solid fa-circle-exclamation"></i>
-                        <span>Modo de Leitura: Como visitante, você não pode realizar alterações nesta página.</span>
-                    </div>
-                <?php endif; ?>
+            <form class="form-container" id="form-estoque" action="cadastro_insumos.php<?php echo $editId ? '?editId='.$editId : ''; ?>" method="POST">
 
-                <?php if (!empty($msg_erro)): ?>
-                    <div style="background-color: #fee2e2; color: #ef4444; border: 1px solid #fca5a5; padding: 10px; border-radius: 8px; margin-bottom: 15px; font-weight: 700;">
-                        <?php echo htmlspecialchars($msg_erro); ?>
-                    </div>
-                <?php endif; ?>
+                <div class="field-card">
+                    <label>Nome do Insumo *</label>
+                    <input name="nome_item" type="text" class="form-input" placeholder="Ex: Adubo NPK, Sementes de Milho" required value="<?php echo htmlspecialchars($nome_item); ?>">
+                </div>
 
-                <form class="form-container" id="form-estoque" action="cadastro_insumos.php<?php echo $editId ? '?editId=' . $editId : ''; ?>" method="POST">
-                    <div class="field-card">
-                        <label>Nome do Insumo</label>
-                        <input name="nome_item" type="text" class="form-input" placeholder="Ex: Adubo NPK, Sementes de Milho" required value="<?php echo htmlspecialchars($nome_item); ?>" <?php echo e_visitante() ? 'disabled' : ''; ?>>
-                    </div>
-                
-                    <div class="field-card">
-                        <label>Categoria</label>
-                        <select name="categoria" class="form-select" required <?php echo e_visitante() ? 'disabled' : ''; ?>>
-                            <option value="Semente" <?php echo $categoria === 'Semente' ? 'selected' : ''; ?>>Semente</option>
-                            <option value="Adubo" <?php echo $categoria === 'Adubo' ? 'selected' : ''; ?>>Adubo / Fertilizante</option>
-                            <option value="Defensivo" <?php echo $categoria === 'Defensivo' ? 'selected' : ''; ?>>Defensivo Orgânico</option>
-                            <option value="Outros" <?php echo $categoria === 'Outros' ? 'selected' : ''; ?>>Outros</option>
+                <div class="field-card">
+                    <label>Categoria *</label>
+                    <select name="categoria" class="form-select" required>
+                        <option value="Semente"   <?php echo $categoria==='Semente'   ? 'selected':''; ?>>Semente</option>
+                        <option value="Adubo"     <?php echo $categoria==='Adubo'     ? 'selected':''; ?>>Adubo / Fertilizante</option>
+                        <option value="Defensivo" <?php echo $categoria==='Defensivo' ? 'selected':''; ?>>Defensivo Orgânico</option>
+                        <option value="Outros"    <?php echo $categoria==='Outros'    ? 'selected':''; ?>>Outros</option>
+                    </select>
+                </div>
+
+                <div class="field-card">
+                    <label>Quantidade em Estoque *</label>
+                    <div class="input-row">
+                        <input name="quantidade" type="number" step="0.01" min="0" class="form-input" placeholder="Ex: 50" required value="<?php echo htmlspecialchars($quantidade); ?>">
+                        <select name="unidade_medida" class="form-select" style="max-width:120px;">
+                            <option value="Kg"     <?php echo $unidade_medida==='Kg'     ? 'selected':''; ?>>Kg</option>
+                            <option value="Litros" <?php echo $unidade_medida==='Litros' ? 'selected':''; ?>>Litros</option>
+                            <option value="Unid"   <?php echo $unidade_medida==='Unid'   ? 'selected':''; ?>>Unid</option>
+                            <option value="g"      <?php echo $unidade_medida==='g'      ? 'selected':''; ?>>g</option>
+                            <option value="mL"     <?php echo $unidade_medida==='mL'     ? 'selected':''; ?>>mL</option>
+                            <option value="Sacos"  <?php echo $unidade_medida==='Sacos'  ? 'selected':''; ?>>Sacos</option>
                         </select>
                     </div>
-                
-                    <div class="field-card">
-                        <label>Quantidade em Estoque</label>
-                        <div class="input-row">
-                            <input name="quantidade" type="number" step="0.01" class="form-input" placeholder="Ex: 50" required value="<?php echo htmlspecialchars($quantidade); ?>" <?php echo e_visitante() ? 'disabled' : ''; ?>>
-                            <select name="unidade_medida" class="form-select" style="max-width: 120px;" <?php echo e_visitante() ? 'disabled' : ''; ?>>
-                                <option value="Kg" <?php echo $unidade_medida === 'Kg' ? 'selected' : ''; ?>>Kg</option>
-                                <option value="Litros" <?php echo $unidade_medida === 'Litros' ? 'selected' : ''; ?>>Litros</option>
-                                <option value="Unid" <?php echo $unidade_medida === 'Unid' ? 'selected' : ''; ?>>Unid</option>
-                            </select>
-                        </div>
-                    </div>
-                
-                    <div class="field-card">
-                        <label>Nível para Alerta Mínimo (Opcional)</label>
-                        <input name="nivel_alerta" type="number" class="form-input" placeholder="Ex: 10" value="<?php echo htmlspecialchars($nivel_alerta); ?>" <?php echo e_visitante() ? 'disabled' : ''; ?>>
-                    </div>
-                
-                    <?php if (!e_visitante()): ?>
-                        <button type="submit" id="btn-save" class="btn-submit"><?php echo $editId ? "Atualizar Estoque" : "Salvar no Estoque"; ?></button>
-                    <?php endif; ?>
-                </form>
-            </main>
-        </div>
-    </div>
+                </div>
 
-    <script>
-        function toggleMenu() {
-            const sidebar = document.getElementById('sidebar');
-            const overlay = document.getElementById('overlay');
-            sidebar.classList.toggle('active');
-            overlay.classList.toggle('active');
-        }
-    </script>
+                <div class="field-card">
+                    <label>Custo de Aquisição (R$ / unidade)</label>
+                    <input name="custo_aquisicao" type="number" step="0.01" min="0" class="form-input" placeholder="Ex: 12.50" value="<?php echo htmlspecialchars($custo_aquisicao); ?>">
+                </div>
+
+                <div class="field-card">
+                    <label>Lote do Fabricante</label>
+                    <input name="lote_fabricante" type="text" class="form-input" placeholder="Ex: LT-2024-0045A" value="<?php echo htmlspecialchars($lote_fabricante); ?>">
+                </div>
+
+                <div class="field-card">
+                    <label>Data de Validade</label>
+                    <input name="data_validade" type="date" class="form-input" value="<?php echo htmlspecialchars($data_validade); ?>">
+                </div>
+
+                <div class="field-card">
+                    <label>Nível para Alerta Mínimo (Opcional)</label>
+                    <input name="nivel_alerta" type="number" class="form-input" placeholder="Ex: 10" value="<?php echo htmlspecialchars($nivel_alerta); ?>">
+                </div>
+
+                <button type="submit" class="btn-submit"><?php echo $editId ? 'Atualizar Insumo' : 'Salvar no Estoque'; ?></button>
+            </form>
+        </main>
+    </div>
+</div>
+<script>
+    function toggleMenu() {
+        document.getElementById('sidebar').classList.toggle('active');
+        document.getElementById('overlay').classList.toggle('active');
+    }
+</script>
 </body>
 </html>

@@ -1,0 +1,22 @@
+{
+  "name": "AgroGestão PRO",
+  "short_name": "AgroGestão",
+  "description": "Sistema Profissional de Gestão de Produção Vegetal",
+  "start_url": "index.php",
+  "display": "standalone",
+  "background_color": "#ffffff",
+  "theme_color": "#22c55e",
+  "orientation": "any",
+  "icons": [
+    {
+      "src": "fotologo.png",
+      "sizes": "192x192",
+      "type": "image/png"
+    },
+    {
+      "src": "fotologo.png",
+      "sizes": "512x512",
+      "type": "image/png"
+    }
+  ]
+}

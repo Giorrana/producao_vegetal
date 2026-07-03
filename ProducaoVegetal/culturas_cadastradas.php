@@ -8,6 +8,8 @@ verificar_login();
 $msg_erro = "";
 $msg_sucesso = "";
 
+$id_usuario = $_SESSION['user_id'];
+
 // Lógica de Exclusão (Apenas Admin)
 if (isset($_GET['action']) && $_GET['action'] === 'delete' && isset($_GET['id'])) {
     if (e_visitante()) {
@@ -15,12 +17,12 @@ if (isset($_GET['action']) && $_GET['action'] === 'delete' && isset($_GET['id'])
     } else {
         $id_del = intval($_GET['id']);
         
-        // Verificar se a cultura está em uso em algum plantio
-        $check_plantio = mysqli_query($conn, "SELECT id_plantio FROM plantios WHERE id_cultura = $id_del");
+        // Verificar se a cultura está em uso em algum plantio do usuário
+        $check_plantio = mysqli_query($conn, "SELECT p.id_plantio FROM plantios p JOIN culturas c ON p.id_cultura = c.id_cultura WHERE p.id_cultura = $id_del AND c.id_usuario = $id_usuario");
         if (mysqli_num_rows($check_plantio) > 0) {
             $msg_erro = "Não é possível excluir esta cultura pois ela já está associada a um plantio ativo.";
         } else {
-            $delete_query = "DELETE FROM culturas WHERE id_cultura = $id_del";
+            $delete_query = "DELETE FROM culturas WHERE id_cultura = $id_del AND id_usuario = $id_usuario";
             if (mysqli_query($conn, $delete_query)) {
                 $msg_sucesso = "Cultura excluída com sucesso!";
             } else {
@@ -33,14 +35,15 @@ if (isset($_GET['action']) && $_GET['action'] === 'delete' && isset($_GET['id'])
 // Filtro de categoria
 $filtro = isset($_GET['filtro']) ? $_GET['filtro'] : 'Todos';
 
-// Montar a query
+// Montar a query filtrando por id_usuario
 $query = "SELECT c.*, cat.nome_categoria FROM culturas c 
-          JOIN categorias cat ON c.id_categoria = cat.id_categoria";
+          JOIN categorias cat ON c.id_categoria = cat.id_categoria
+          WHERE c.id_usuario = $id_usuario";
 
 if ($filtro === 'Horta') {
-    $query .= " WHERE cat.nome_categoria = 'Horta'";
+    $query .= " AND cat.nome_categoria = 'Horta'";
 } elseif ($filtro === 'Pomar') {
-    $query .= " WHERE cat.nome_categoria = 'Pomar'";
+    $query .= " AND cat.nome_categoria = 'Pomar'";
 }
 $query .= " ORDER BY c.id_cultura DESC";
 

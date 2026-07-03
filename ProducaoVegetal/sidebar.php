@@ -67,3 +67,19 @@ $user_iniciais = obter_iniciais($user_nome);
     </div>
 </aside>
 <div class="overlay" id="overlay" onclick="toggleMenu()"></div>
+
+<script>
+if ('serviceWorker' in navigator) {
+    const link = document.createElement('link');
+    link.rel = 'manifest';
+    link.href = 'manifest.json';
+    document.head.appendChild(link);
+
+    window.addEventListener('load', () => {
+        navigator.serviceWorker.register('sw.js')
+            .then(reg => console.log('Service Worker registered!', reg))
+            .catch(err => console.log('Service Worker registration failed:', err));
+    });
+}
+</script>
+

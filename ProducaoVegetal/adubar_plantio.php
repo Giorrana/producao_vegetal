@@ -11,14 +11,16 @@ $msg_sucesso = "";
 $id_plantio = isset($_GET['id']) ? intval($_GET['id']) : 0;
 $nome_cultura = isset($_GET['nome']) ? htmlspecialchars(urldecode($_GET['nome'])) : '';
 
+$id_usuario = $_SESSION['user_id'];
+
 // Se o plantio não for válido, redirecionar de volta
 if ($id_plantio <= 0) {
     header("Location: plantios_ativos.php");
     exit;
 }
 
-// Verificar se o plantio existe
-$plantio_res = mysqli_query($conn, "SELECT p.*, c.nome_cultura FROM plantios p JOIN culturas c ON p.id_cultura = c.id_cultura WHERE p.id_plantio = $id_plantio AND p.colhido = 0");
+// Verificar se o plantio existe e pertence ao usuário
+$plantio_res = mysqli_query($conn, "SELECT p.*, c.nome_cultura FROM plantios p JOIN culturas c ON p.id_cultura = c.id_cultura WHERE p.id_plantio = $id_plantio AND p.colhido = 0 AND c.id_usuario = $id_usuario");
 if (!$plantio_res || mysqli_num_rows($plantio_res) == 0) {
     header("Location: plantios_ativos.php?erro=plantio_invalido");
     exit;
@@ -26,8 +28,8 @@ if (!$plantio_res || mysqli_num_rows($plantio_res) == 0) {
 $plantio = mysqli_fetch_assoc($plantio_res);
 $nome_cultura = htmlspecialchars($plantio['nome_cultura']);
 
-// Buscar adubos do estoque
-$adubos_res = mysqli_query($conn, "SELECT * FROM estoque WHERE categoria = 'Adubo' ORDER BY nome_item ASC");
+// Buscar adubos do estoque do usuário
+$adubos_res = mysqli_query($conn, "SELECT * FROM estoque WHERE categoria = 'Adubo' AND id_usuario = $id_usuario ORDER BY nome_item ASC");
 $adubos = [];
 if ($adubos_res) {
     while ($row = mysqli_fetch_assoc($adubos_res)) {
@@ -50,8 +52,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         } elseif ($quantidade <= 0) {
             $msg_erro = "Informe uma quantidade válida maior que zero.";
         } else {
-            // Verificar estoque disponível
-            $estoque_res = mysqli_query($conn, "SELECT quantidade, unidade_medida, nome_item, nivel_alerta FROM estoque WHERE id_item = $id_adubo");
+            // Verificar estoque disponível do usuário
+            $estoque_res = mysqli_query($conn, "SELECT quantidade, unidade_medida, nome_item, nivel_alerta FROM estoque WHERE id_item = $id_adubo AND id_usuario = $id_usuario");
             $item_estoque = mysqli_fetch_assoc($estoque_res);
 
             if (!$item_estoque) {
@@ -61,20 +63,24 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             } else {
                 mysqli_begin_transaction($conn);
 
-                // 1. Registrar o cuidado na tabela cuidados_plantio
-                $ins_cuidado = "INSERT INTO cuidados_plantio (irrigar, adubar, data_cuidado, id_plantio) 
-                                VALUES ('não', '" . $item_estoque['nome_item'] . "', '$data_cuidado', $id_plantio)";
+                // 1. Registrar o cuidado usando o esquema atualizado (tipo_manejo + responsavel)
+                $custo_aplic = $item_estoque['custo_aquisicao'] ? round($item_estoque['custo_aquisicao'] * $quantidade, 2) : 0;
+                $stmt_ins = $conn->prepare(
+                    "INSERT INTO cuidados_plantio (id_plantio, tipo_manejo, id_item, quantidade_usada, custo_calculado, responsavel, data_cuidado)
+                     VALUES (?, 'Adubação', ?, ?, ?, 'Registro Manual', ?)"
+                );
+                $stmt_ins->bind_param("iidds", $id_plantio, $id_adubo, $quantidade, $custo_aplic, $data_cuidado);
 
-                // 2. Descontar do estoque
+                // 2. Descontar do estoque do usuário
                 $nova_qtd    = $item_estoque['quantidade'] - $quantidade;
                 $novo_status = ($nova_qtd <= $item_estoque['nivel_alerta']) ? 'Alerta' : 'Normal';
-                $upd_estoque = "UPDATE estoque SET quantidade = $nova_qtd, status_estoque = '$novo_status' WHERE id_item = $id_adubo";
+                $upd_estoque = "UPDATE estoque SET quantidade = $nova_qtd, status_estoque = '$novo_status' WHERE id_item = $id_adubo AND id_usuario = $id_usuario";
 
-                if (mysqli_query($conn, $ins_cuidado) && mysqli_query($conn, $upd_estoque)) {
+                if ($stmt_ins->execute() && mysqli_query($conn, $upd_estoque)) {
                     mysqli_commit($conn);
                     $msg_sucesso = "Adubação registrada com sucesso! " . number_format($quantidade, 2, ',', '.') . " " . $item_estoque['unidade_medida'] . " de \"" . htmlspecialchars($item_estoque['nome_item']) . "\" aplicados.";
-                    // Recarregar adubos para refletir nova quantidade
-                    $adubos_res2 = mysqli_query($conn, "SELECT * FROM estoque WHERE categoria = 'Adubo' ORDER BY nome_item ASC");
+                    // Recarregar adubos do usuário para refletir nova quantidade
+                    $adubos_res2 = mysqli_query($conn, "SELECT * FROM estoque WHERE categoria = 'Adubo' AND id_usuario = $id_usuario ORDER BY nome_item ASC");
                     $adubos = [];
                     if ($adubos_res2) {
                         while ($row = mysqli_fetch_assoc($adubos_res2)) {
@@ -90,8 +96,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     }
 }
 
-// Histórico de adubações deste plantio
-$historico_res = mysqli_query($conn, "SELECT * FROM cuidados_plantio WHERE id_plantio = $id_plantio AND adubar != 'não' ORDER BY data_cuidado DESC LIMIT 10");
+// Histórico de adubações deste plantio do usuário (usa novo esquema: tipo_manejo)
+$historico_res = mysqli_query($conn, "SELECT cp.*, e.nome_item FROM cuidados_plantio cp LEFT JOIN estoque e ON cp.id_item = e.id_item JOIN plantios p ON cp.id_plantio = p.id_plantio JOIN culturas c ON p.id_cultura = c.id_cultura WHERE cp.id_plantio = $id_plantio AND cp.tipo_manejo = 'Adubação' AND c.id_usuario = $id_usuario ORDER BY cp.data_cuidado DESC LIMIT 10");
 $historico_adubo = [];
 if ($historico_res) {
     while ($row = mysqli_fetch_assoc($historico_res)) {
@@ -289,15 +295,21 @@ $activePage = 'plantios'; // Mantém plantios ativo no menu
                             <?php else: ?>
                                 <div style="display: flex; flex-direction: column; gap: 8px;">
                                     <?php foreach ($historico_adubo as $h): ?>
-                                    <div style="background: var(--card-bg); border: 1px solid var(--border-color); border-radius: 10px; padding: 12px 14px; display: flex; align-items: center; gap: 12px;">
-                                        <div style="width: 36px; height: 36px; border-radius: 50%; background: #d1fae5; display: flex; align-items: center; justify-content: center; font-size: 16px; flex-shrink: 0;">🌿</div>
-                                        <div>
-                                            <div style="font-weight: 700; font-size: 13px; color: var(--text-main);"><?php echo htmlspecialchars($h['adubar']); ?></div>
-                                            <div style="font-size: 11px; color: var(--text-gray); margin-top: 2px;">
-                                                <i class="fa-solid fa-calendar" style="margin-right: 4px;"></i>
-                                                <?php echo date('d/m/Y', strtotime($h['data_cuidado'])); ?>
+                                    <div style="background: var(--card-bg); border: 1px solid var(--border-color); border-radius: 10px; padding: 12px 14px; display: flex; align-items: center; justify-content: space-between; gap: 12px;">
+                                        <div style="display:flex;align-items:center;gap:12px;">
+                                            <div style="width: 36px; height: 36px; border-radius: 50%; background: #d1fae5; display: flex; align-items: center; justify-content: center; flex-shrink: 0;"><i class="fa-solid fa-flask" style="color:#16a34a;"></i></div>
+                                            <div>
+                                                <div style="font-weight: 700; font-size: 13px; color: var(--text-main);"><?php echo htmlspecialchars($h['nome_item'] ?? '—'); ?></div>
+                                                <div style="font-size: 11px; color: var(--text-gray); margin-top: 2px;">
+                                                    <i class="fa-solid fa-calendar" style="margin-right: 4px;"></i>
+                                                    <?php echo date('d/m/Y', strtotime($h['data_cuidado'])); ?>
+                                                    <?php if ($h['quantidade_usada']): ?> · <?php echo number_format($h['quantidade_usada'],2,',','.'); ?> un.<?php endif; ?>
+                                                </div>
                                             </div>
                                         </div>
+                                        <?php if ($h['custo_calculado']): ?>
+                                            <span style="font-size:12px;font-weight:800;color:#16a34a;">R$ <?php echo number_format($h['custo_calculado'],2,',','.'); ?></span>
+                                        <?php endif; ?>
                                     </div>
                                     <?php endforeach; ?>
                                 </div>
