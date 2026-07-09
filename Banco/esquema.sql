@@ -274,9 +274,9 @@ INSERT IGNORE INTO `categorias` (`id_categoria`, `nome_categoria`) VALUES
 -- Usuários padrão  (senhas: bcrypt de "12345")
 -- Troque as hashes abaixo por novas geradas em produção!
 INSERT IGNORE INTO `usuarios` (`id_usuario`, `nome`, `email`, `senha`, `perfil`) VALUES
-(1, 'Administrador', 'admin@gmail.com',     '$2y$10$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2.uheWG/igi', 'admin'),
-(2, 'Operador',      'operador@gmail.com',  '$2y$10$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2.uheWG/igi', 'operador'),
-(3, 'Visitante',     'visitante@gmail.com', '$2y$10$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2.uheWG/igi', 'visitante');
+(1, 'Administrador', 'admin@gmail.com',     '$2y$10$/vjckEfvfMQyAf0ZvGyEKeXo1lsB/.p1/pGqZJ/OuazF3.TYY5MiO', 'admin'),
+(2, 'Operador',      'operador@gmail.com',  '$2y$10$/vjckEfvfMQyAf0ZvGyEKeXo1lsB/.p1/pGqZJ/OuazF3.TYY5MiO', 'operador'),
+(3, 'Visitante',     'visitante@gmail.com', '$2y$10$/vjckEfvfMQyAf0ZvGyEKeXo1lsB/.p1/pGqZJ/OuazF3.TYY5MiO', 'visitante');
 
 SET FOREIGN_KEY_CHECKS = 1;
 
