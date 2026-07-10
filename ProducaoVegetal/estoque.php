@@ -200,7 +200,7 @@ $activePage = 'estoque';
                                                     <i class="fa-solid fa-trash-can"></i>
                                                 </a>
                                             </div>
-                                        <?php; ?>
+                                        <?php endif;?>
                                     </div>
                                 </div>
                             <?php endforeach; ?>
