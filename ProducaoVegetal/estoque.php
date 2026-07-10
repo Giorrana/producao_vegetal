@@ -187,17 +187,6 @@ $activePage = 'estoque';
                                     </div>
                                     
                                     <div class="item-right">
-                                        <!-- Controles Rápidos de Quantidade (Apenas Admin) -->
-                                        <?php if (!e_visitante()): ?>
-                                            <div class="qty-controls">
-                                                <a href="estoque.php?action=adjust_qty&id=<?php echo $item['id_item']; ?>&val=-1&filtro=<?php echo $filtro; ?><?php echo isset($_GET['action_type']) ? '&action_type=adubar' : ''; ?>" class="btn-qty btn-qty-minus">
-                                                    <i class="fa-solid fa-minus"></i>
-                                                </a>
-                                                <a href="estoque.php?action=adjust_qty&id=<?php echo $item['id_item']; ?>&val=1&filtro=<?php echo $filtro; ?><?php echo isset($_GET['action_type']) ? '&action_type=adubar' : ''; ?>" class="btn-qty btn-qty-plus">
-                                                    <i class="fa-solid fa-plus"></i>
-                                                </a>
-                                            </div>
-                                            
                                             <!-- Ações de Editar e Excluir -->
                                             <div class="action-btns">
                                                 <a href="cadastro_insumos.php?editId=<?php echo $item['id_item']; ?>" class="btn-action btn-edit">
@@ -209,7 +198,7 @@ $activePage = 'estoque';
                                                     <i class="fa-solid fa-trash-can"></i>
                                                 </a>
                                             </div>
-                                        <?php endif; ?>
+                                        <?php; ?>
                                     </div>
                                 </div>
                             <?php endforeach; ?>

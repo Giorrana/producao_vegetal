@@ -57,7 +57,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     } else {
         if ($editId) {
             $stmt = $conn->prepare("UPDATE estoque SET nome_item=?, categoria=?, quantidade=?, unidade_medida=?, nivel_alerta=?, status_estoque=?, data_validade=?, lote_fabricante=?, custo_aquisicao=? WHERE id_item=?");
-            $stmt->bind_param("ssdsssssd i", $nome_item, $categoria, $quantidade, $unidade_medida, $nivel_alerta, $status_estoque, $data_validade, $lote_fabricante, $custo_aquisicao, $editId);
+            $stmt->bind_param("ssdsssssdi", $nome_item, $categoria, $quantidade, $unidade_medida, $nivel_alerta, $status_estoque, $data_validade, $lote_fabricante, $custo_aquisicao, $editId);
             if ($stmt->execute()) {
                 header("Location: estoque.php?msg=editado"); exit;
             } else { $msg_erro = "Erro ao atualizar: " . $stmt->error; }

@@ -71,7 +71,52 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['ajax_manejo'])) {
 if (isset($_GET['action']) && !e_visitante()) {
     $id = intval($_GET['id'] ?? 0);
     $id_usuario = $_SESSION['user_id'];
-
+    if ($_GET['action'] === 'delete' && $id > 0) {
+        // Verifica se o plantio pertence ao usuário
+        $stmt = $conn->prepare("
+            SELECT p.id_plantio
+            FROM plantios p
+            JOIN culturas c ON p.id_cultura = c.id_cultura
+            WHERE p.id_plantio = ? AND c.id_usuario = ?
+        ");
+        $stmt->bind_param("ii", $id, $id_usuario);
+        $stmt->execute();
+        if ($stmt->get_result()->num_rows > 0) {
+            mysqli_begin_transaction($conn);
+            try {
+                // Remove os registros do caderno de campo
+                $stmt1 = $conn->prepare("
+                    DELETE FROM cuidados_plantio
+                    WHERE id_plantio = ?
+                ");
+                $stmt1->bind_param("i", $id);
+                $stmt1->execute();
+                // Remove colheitas, caso existam
+                $stmt2 = $conn->prepare("
+                    DELETE FROM colheitas
+                    WHERE id_plantio = ?
+                ");
+                $stmt2->bind_param("i", $id);
+                $stmt2->execute();
+                // Remove o plantio
+                $stmt3 = $conn->prepare("
+                    DELETE FROM plantios
+                    WHERE id_plantio = ?
+                ");
+                $stmt3->bind_param("i", $id);
+                $stmt3->execute();
+                mysqli_commit($conn);
+                header("Location: plantios_ativos.php?msg=excluido&filtro=$filtro");
+                exit;
+            } catch (Exception $e) {
+                mysqli_rollback($conn);
+                $msg_erro = "Erro ao excluir o plantio.";
+            }
+        } else {
+            $msg_erro = "Plantio não encontrado.";
+        }
+    
+    }
     if ($_GET['action'] === 'irrigar' && $id > 0) {
         $q = $conn->query("SELECT p.irrigado FROM plantios p JOIN culturas c ON p.id_cultura = c.id_cultura WHERE p.id_plantio=$id AND c.id_usuario = $id_usuario");
         if ($q && $row = $q->fetch_assoc()) {
@@ -157,7 +202,7 @@ $activePage = 'plantios';
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>AgroGestão - Plantios Ativos</title>
-    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.googleapis.cm">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;700;900&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
@@ -580,6 +625,7 @@ $activePage = 'plantios';
                                             <span class="cultura-tag"><?php echo $sigla_tag; ?></span>
                                         </h4>
                                         <p>
+                                            
                                             <i class="fa-solid fa-location-dot" style="color:var(--primary-green);"></i>
                                             <?php echo htmlspecialchars($p['local_canteiro']); ?>
                                             <span style="font-size:11px;color:var(--text-gray);margin-left:8px;">(<?php echo htmlspecialchars($p['quantidade_plantada']); ?> un.)</span>
@@ -591,6 +637,11 @@ $activePage = 'plantios';
                                     <?php if ($p['custo_total'] > 0): ?>
                                         <div class="custo-badge"><i class="fa-solid fa-circle-dollar-to-slot"></i> R$ <?php echo number_format($p['custo_total'],2,',','.'); ?></div>
                                     <?php endif; ?>
+                                    <a href="plantios_ativos.php?action=delete&id=<?php echo $p['id_plantio']; ?>&filtro=<?php echo urlencode($filtro); ?>"
+                                    class="btn-action btn-delete"
+                                    onclick="return confirm('Deseja realmente excluir este plantio? Todos os manejos registrados também serão apagados.');">
+                                     <i class="fa-solid fa-trash-can"></i>
+                                    </a>
                                 </div>
 
                                 <!-- DAP Badge -->

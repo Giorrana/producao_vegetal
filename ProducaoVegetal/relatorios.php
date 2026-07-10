@@ -160,9 +160,6 @@ $activePage = 'relatorios';
                     <button class="pillar-tab" onclick="showPillar('planejamento',this)" id="tab-planejamento">
                         <i class="fa-solid fa-calendar-check"></i> Planejamento
                     </button>
-                    <button class="pillar-tab" onclick="showPillar('clima',this)" id="tab-clima">
-                        <i class="fa-solid fa-cloud-sun-rain"></i> Clima
-                    </button>
                     <button class="pillar-tab" onclick="showPillar('rastreabilidade',this)" id="tab-rastreabilidade">
                         <i class="fa-solid fa-barcode"></i> Rastreabilidade
                     </button>
@@ -394,53 +391,6 @@ $activePage = 'relatorios';
                     </div>
                 </div><!-- /planejamento -->
 
-                <!-- ══ PILLAR 4: CLIMA ═══════════════════════════════════════ -->
-                <div class="pillar-panel" id="pillar-clima">
-                    <div class="report-card">
-                        <div class="rc-subtitle">CONDIÇÕES CLIMÁTICAS</div>
-                        <h2 class="rc-title" style="margin-bottom:4px;">Dados Climáticos — Representativo</h2>
-                        <p style="font-size:12px;color:var(--text-gray);margin-bottom:16px;">Para integração real, conecte sua estação meteorológica local via API.</p>
-                        <div class="svg-container">
-                            <svg class="chart-svg" viewBox="0 0 400 220" preserveAspectRatio="none">
-                                <!-- Grid lines -->
-                                <line x1="40" y1="20" x2="400" y2="20" stroke="#f3f4f6" stroke-width="1"/>
-                                <line x1="40" y1="80" x2="400" y2="80" stroke="#f3f4f6" stroke-width="1"/>
-                                <line x1="40" y1="140" x2="400" y2="140" stroke="#f3f4f6" stroke-width="1"/>
-                                <line x1="40" y1="200" x2="400" y2="200" stroke="#e5e7eb" stroke-width="2"/>
-                                <!-- Labels Y -->
-                                <text x="30" y="24" font-size="9" fill="#9ca3af" text-anchor="end">40°C</text>
-                                <text x="30" y="84" font-size="9" fill="#9ca3af" text-anchor="end">25°C</text>
-                                <text x="30" y="144" font-size="9" fill="#9ca3af" text-anchor="end">10°C</text>
-                                <!-- Month labels -->
-                                <?php $mls=['J','F','M','A','M','J','J','A','S','O','N','D'];
-                                      $mxs=[55,90,125,160,195,230,265,300,335,365,395,425];
-                                      // Only render 10
-                                      foreach(array_slice($mls,0,10,true) as $i=>$ml): ?>
-                                    <text x="<?php echo $mxs[$i]; ?>" y="218" font-size="9" fill="#1f2937" text-anchor="middle"><?php echo $ml; ?></text>
-                                <?php endforeach; ?>
-                                <!-- Precipitation bars (blue, representative) -->
-                                <?php $prec=[45,60,80,40,30,15,10,20,50,70,55,35];
-                                      $temp=[28,29,31,30,26,22,20,22,26,29,30,28];
-                                      foreach(array_slice($mxs,0,10) as $i=>$x):
-                                          $barH = ($prec[$i]/100)*80; $barY=200-$barH; ?>
-                                    <rect x="<?php echo $x-8; ?>" y="<?php echo $barY; ?>" width="16" height="<?php echo $barH; ?>" fill="rgba(59,130,246,.4)" rx="2"/>
-                                <?php endforeach; ?>
-                                <!-- Temperature line (red) -->
-                                <?php $pts='';
-                                      foreach(array_slice($mxs,0,10) as $i=>$x):
-                                          $y=200-(($temp[$i]-10)/30)*180;
-                                          $pts.="$x,$y ";
-                                      endforeach; ?>
-                                <polyline points="<?php echo trim($pts); ?>" fill="none" stroke="#ef4444" stroke-width="2.5" stroke-linejoin="round"/>
-                                <!-- Legend -->
-                                <rect x="300" y="15" width="10" height="10" fill="rgba(59,130,246,.5)" rx="2"/>
-                                <text x="314" y="24" font-size="9" fill="#1f2937">Chuva (mm)</text>
-                                <line x1="300" y1="35" x2="310" y2="35" stroke="#ef4444" stroke-width="2.5"/>
-                                <text x="314" y="39" font-size="9" fill="#1f2937">Temp (°C)</text>
-                            </svg>
-                        </div>
-                    </div>
-                </div><!-- /clima -->
 
                 <!-- ══ PILLAR 5: RASTREABILIDADE ════════════════════════════ -->
                 <div class="pillar-panel" id="pillar-rastreabilidade">
