@@ -187,6 +187,8 @@ $activePage = 'estoque';
                                     </div>
                                     
                                     <div class="item-right">
+                                        <!-- Controles Rápidos de Quantidade (Apenas Admin) -->
+                                        <?php if (!e_visitante()): ?>                                        
                                             <!-- Ações de Editar e Excluir -->
                                             <div class="action-btns">
                                                 <a href="cadastro_insumos.php?editId=<?php echo $item['id_item']; ?>" class="btn-action btn-edit">
