@@ -622,7 +622,6 @@ $activePage = 'plantios';
                                     <div class="plantio-info">
                                         <h4>
                                             <?php echo htmlspecialchars($p['nome_cultura']); ?>
-                                            <span class="cultura-tag"><?php echo $sigla_tag; ?></span>
                                         </h4>
                                         <p>
                                             
