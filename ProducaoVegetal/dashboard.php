@@ -7,30 +7,30 @@ verificar_login();
 $id_usuario = $_SESSION['user_id'];
 
 // --- Dados para os cards do topo ---
-$q_culturas  = mysqli_query($conn, "SELECT id_cultura FROM culturas");
+$q_culturas  = mysqli_query($conn, "SELECT id_cultura FROM culturas WHERE id_usuario = $id_usuario");
 $total_culturas = $q_culturas ? mysqli_num_rows($q_culturas) : 0;
 
-$q_plantios  = mysqli_query($conn, "SELECT id_plantio FROM plantios WHERE colhido = 0");
+$q_plantios  = mysqli_query($conn, "SELECT p.id_plantio FROM plantios p JOIN culturas c ON p.id_cultura = c.id_cultura WHERE p.colhido = 0 AND c.id_usuario = $id_usuario");
 $total_plantios = $q_plantios ? mysqli_num_rows($q_plantios) : 0;
 
-$q_insumos   = mysqli_query($conn, "SELECT id_item FROM estoque");
+$q_insumos   = mysqli_query($conn, "SELECT id_item FROM estoque WHERE id_usuario = $id_usuario");
 $total_insumos = $q_insumos ? mysqli_num_rows($q_insumos) : 0;
 
-$q_colheita  = mysqli_query($conn, "SELECT SUM(quantidade_colhida) AS total FROM colheitas");
+$q_colheita  = mysqli_query($conn, "SELECT SUM(col.quantidade_colhida) AS total FROM colheitas col JOIN plantios p ON col.id_plantio = p.id_plantio JOIN culturas c ON p.id_cultura = c.id_cultura WHERE c.id_usuario = $id_usuario");
 $total_colhido = 0;
 if ($q_colheita) { $row = mysqli_fetch_assoc($q_colheita); $total_colhido = $row['total'] ?? 0; }
 
 // --- Alertas Críticos: Estoque abaixo do nível mínimo OU a vencer em 30 dias ---
 $alertas = [];
 
-$q_alerta_min = mysqli_query($conn, "SELECT nome_item, quantidade, nivel_alerta, unidade_medida FROM estoque WHERE status_estoque = 'Alerta'");
+$q_alerta_min = mysqli_query($conn, "SELECT nome_item, quantidade, nivel_alerta, unidade_medida FROM estoque WHERE status_estoque = 'Alerta' AND id_usuario = $id_usuario");
 if ($q_alerta_min) {
     while ($row = mysqli_fetch_assoc($q_alerta_min)) {
         $alertas[] = ['tipo' => 'estoque', 'msg' => "Estoque crítico: <b>" . htmlspecialchars($row['nome_item']) . "</b> — " . number_format($row['quantidade'],2,',','.') . " " . htmlspecialchars($row['unidade_medida']) . " (mín: {$row['nivel_alerta']})"];
     }
 }
 
-$q_alerta_validade = mysqli_query($conn, "SELECT nome_item, data_validade FROM estoque WHERE data_validade IS NOT NULL AND data_validade <= DATE_ADD(CURDATE(), INTERVAL 30 DAY) AND data_validade >= CURDATE()");
+$q_alerta_validade = mysqli_query($conn, "SELECT nome_item, data_validade FROM estoque WHERE data_validade IS NOT NULL AND data_validade <= DATE_ADD(CURDATE(), INTERVAL 30 DAY) AND data_validade >= CURDATE() AND id_usuario = $id_usuario");
 if ($q_alerta_validade) {
     while ($row = mysqli_fetch_assoc($q_alerta_validade)) {
         $data_fmt = date('d/m/Y', strtotime($row['data_validade']));
@@ -41,8 +41,73 @@ if ($q_alerta_validade) {
 // --- Custo total de insumos (Admin only) ---
 $custo_total_insumos = 0;
 if (e_admin()) {
-    $q_custo = mysqli_query($conn, "SELECT SUM(quantidade * custo_aquisicao) AS total FROM estoque");
+    $q_custo = mysqli_query($conn, "SELECT SUM(quantidade * custo_aquisicao) AS total FROM estoque WHERE id_usuario = $id_usuario");
     if ($q_custo) { $r = mysqli_fetch_assoc($q_custo); $custo_total_insumos = $r['total'] ?? 0; }
+}
+
+// --- Últimos 5 meses de dados dinâmicos para estatísticas ---
+$meses_nomes = [1=>'Jan', 2=>'Fev', 3=>'Mar', 4=>'Abr', 5=>'Mai', 6=>'Jun', 7=>'Jul', 8=>'Ago', 9=>'Set', 10=>'Out', 11=>'Nov', 12=>'Dez'];
+$ultimos_meses = [];
+for ($i = 4; $i >= 0; $i--) {
+    $time = strtotime("-$i months");
+    $m = intval(date('n', $time));
+    $y = intval(date('Y', $time));
+    $ultimos_meses[] = [
+        'num' => $m,
+        'ano' => $y,
+        'label' => $meses_nomes[$m],
+        'plantios' => 0,
+        'colheido' => 0.0
+    ];
+}
+
+// Buscar plantios por mês
+$q_stats_plantios = mysqli_query($conn, "
+    SELECT MONTH(p.data_plantio) as mes, YEAR(p.data_plantio) as ano, COUNT(*) as total
+    FROM plantios p
+    JOIN culturas c ON p.id_cultura = c.id_cultura
+    WHERE p.data_plantio >= DATE_SUB(CURDATE(), INTERVAL 5 MONTH)
+      AND c.id_usuario = $id_usuario
+    GROUP BY YEAR(p.data_plantio), MONTH(p.data_plantio)
+");
+if ($q_stats_plantios) {
+    while ($row = mysqli_fetch_assoc($q_stats_plantios)) {
+        foreach ($ultimos_meses as &$um) {
+            if ($um['num'] == intval($row['mes']) && $um['ano'] == intval($row['ano'])) {
+                $um['plantios'] = intval($row['total']);
+            }
+        }
+    }
+    unset($um);
+}
+
+// Buscar colheitas por mês
+$q_stats_colheitas = mysqli_query($conn, "
+    SELECT MONTH(col.data_colheita) as mes, YEAR(col.data_colheita) as ano, SUM(col.quantidade_colhida) as total
+    FROM colheitas col
+    JOIN plantios p ON col.id_plantio = p.id_plantio
+    JOIN culturas c ON p.id_cultura = c.id_cultura
+    WHERE col.data_colheita >= DATE_SUB(CURDATE(), INTERVAL 5 MONTH)
+      AND c.id_usuario = $id_usuario
+    GROUP BY YEAR(col.data_colheita), MONTH(col.data_colheita)
+");
+if ($q_stats_colheitas) {
+    while ($row = mysqli_fetch_assoc($q_stats_colheitas)) {
+        foreach ($ultimos_meses as &$um) {
+            if ($um['num'] == intval($row['mes']) && $um['ano'] == intval($row['ano'])) {
+                $um['colheido'] = floatval($row['total']);
+            }
+        }
+    }
+    unset($um);
+}
+
+// Valores máximos para escala dos gráficos
+$max_plantios = 1;
+$max_colheito = 1.0;
+foreach ($ultimos_meses as $um) {
+    if ($um['plantios'] > $max_plantios) $max_plantios = $um['plantios'];
+    if ($um['colheido'] > $max_colheito) $max_colheito = $um['colheido'];
 }
 
 $iniciais_top = obter_iniciais($_SESSION['user_nome']);
@@ -183,22 +248,26 @@ $activePage = 'dashboard';
                                 </div>
                                 <div class="stat-chart">
                                     <svg viewBox="0 0 300 150" preserveAspectRatio="none">
-                                        <text x="25" y="25" font-size="11" font-weight="600" fill="var(--text-gray)" text-anchor="end">30</text>
-                                        <text x="25" y="75" font-size="11" font-weight="600" fill="var(--text-gray)" text-anchor="end">15</text>
+                                        <text x="25" y="25" font-size="11" font-weight="600" fill="var(--text-gray)" text-anchor="end"><?php echo $max_plantios; ?></text>
+                                        <text x="25" y="75" font-size="11" font-weight="600" fill="var(--text-gray)" text-anchor="end"><?php echo ceil($max_plantios / 2); ?></text>
                                         <text x="25" y="125" font-size="11" font-weight="600" fill="var(--text-gray)" text-anchor="end">0</text>
                                         <line x1="35" y1="20" x2="300" y2="20" stroke="var(--border-color)" stroke-width="1" stroke-dasharray="4"/>
                                         <line x1="35" y1="70" x2="300" y2="70" stroke="var(--border-color)" stroke-width="1" stroke-dasharray="4"/>
                                         <line x1="35" y1="120" x2="300" y2="120" stroke="var(--border-color)" stroke-width="2"/>
-                                        <text x="60" y="145" font-size="11" font-weight="600" fill="var(--text-gray)" text-anchor="middle">Jan</text>
-                                        <text x="115" y="145" font-size="11" font-weight="600" fill="var(--text-gray)" text-anchor="middle">Fev</text>
-                                        <text x="170" y="145" font-size="11" font-weight="600" fill="var(--text-gray)" text-anchor="middle">Mar</text>
-                                        <text x="225" y="145" font-size="11" font-weight="600" fill="var(--text-gray)" text-anchor="middle">Abr</text>
-                                        <text x="280" y="145" font-size="11" font-weight="600" fill="var(--text-gray)" text-anchor="middle">Mai</text>
-                                        <rect x="50" y="80" width="20" height="40" fill="var(--primary-green)" rx="4"/>
-                                        <rect x="105" y="50" width="20" height="70" fill="var(--primary-green)" rx="4"/>
-                                        <rect x="160" y="30" width="20" height="90" fill="var(--primary-green)" rx="4"/>
-                                        <rect x="215" y="60" width="20" height="60" fill="var(--primary-green)" rx="4"/>
-                                        <rect x="270" y="40" width="20" height="80" fill="var(--primary-green)" rx="4"/>
+                                        <?php 
+                                        $label_xs = [60, 115, 170, 225, 280];
+                                        foreach ($ultimos_meses as $idx => $um):
+                                        ?>
+                                            <text x="<?php echo $label_xs[$idx]; ?>" y="145" font-size="11" font-weight="600" fill="var(--text-gray)" text-anchor="middle"><?php echo $um['label']; ?></text>
+                                        <?php endforeach; ?>
+                                        <?php
+                                        $bar_xs = [50, 105, 160, 215, 270];
+                                        foreach ($ultimos_meses as $idx => $um):
+                                            $h = ($um['plantios'] / $max_plantios) * 100;
+                                            $y = 120 - $h;
+                                        ?>
+                                            <rect x="<?php echo $bar_xs[$idx]; ?>" y="<?php echo $y; ?>" width="20" height="<?php echo $h; ?>" fill="var(--primary-green)" rx="4"/>
+                                        <?php endforeach; ?>
                                     </svg>
                                 </div>
                             </div>
@@ -212,22 +281,26 @@ $activePage = 'dashboard';
                                 </div>
                                 <div class="stat-chart">
                                     <svg viewBox="0 0 300 150" preserveAspectRatio="none">
-                                        <text x="30" y="25" font-size="11" font-weight="600" fill="var(--text-gray)" text-anchor="end">400</text>
-                                        <text x="30" y="75" font-size="11" font-weight="600" fill="var(--text-gray)" text-anchor="end">200</text>
+                                        <text x="30" y="25" font-size="11" font-weight="600" fill="var(--text-gray)" text-anchor="end"><?php echo round($max_colheito); ?></text>
+                                        <text x="30" y="75" font-size="11" font-weight="600" fill="var(--text-gray)" text-anchor="end"><?php echo round($max_colheito / 2); ?></text>
                                         <text x="30" y="125" font-size="11" font-weight="600" fill="var(--text-gray)" text-anchor="end">0</text>
                                         <line x1="40" y1="20" x2="300" y2="20" stroke="var(--border-color)" stroke-width="1" stroke-dasharray="4"/>
                                         <line x1="40" y1="70" x2="300" y2="70" stroke="var(--border-color)" stroke-width="1" stroke-dasharray="4"/>
                                         <line x1="40" y1="120" x2="300" y2="120" stroke="var(--border-color)" stroke-width="2"/>
-                                        <text x="65" y="145" font-size="11" font-weight="600" fill="var(--text-gray)" text-anchor="middle">Jan</text>
-                                        <text x="120" y="145" font-size="11" font-weight="600" fill="var(--text-gray)" text-anchor="middle">Fev</text>
-                                        <text x="175" y="145" font-size="11" font-weight="600" fill="var(--text-gray)" text-anchor="middle">Mar</text>
-                                        <text x="230" y="145" font-size="11" font-weight="600" fill="var(--text-gray)" text-anchor="middle">Abr</text>
-                                        <text x="285" y="145" font-size="11" font-weight="600" fill="var(--text-gray)" text-anchor="middle">Mai</text>
-                                        <rect x="55" y="90" width="20" height="30" fill="var(--orange)" rx="4"/>
-                                        <rect x="110" y="60" width="20" height="60" fill="var(--orange)" rx="4"/>
-                                        <rect x="165" y="30" width="20" height="90" fill="var(--orange)" rx="4"/>
-                                        <rect x="220" y="50" width="20" height="70" fill="var(--orange)" rx="4"/>
-                                        <rect x="285" y="40" width="20" height="80" fill="var(--orange)" rx="4"/>
+                                        <?php 
+                                        $label_xs = [65, 120, 175, 230, 285];
+                                        foreach ($ultimos_meses as $idx => $um):
+                                        ?>
+                                            <text x="<?php echo $label_xs[$idx]; ?>" y="145" font-size="11" font-weight="600" fill="var(--text-gray)" text-anchor="middle"><?php echo $um['label']; ?></text>
+                                        <?php endforeach; ?>
+                                        <?php
+                                        $bar_xs = [55, 110, 165, 220, 275];
+                                        foreach ($ultimos_meses as $idx => $um):
+                                            $h = ($um['colheido'] / $max_colheito) * 100;
+                                            $y = 120 - $h;
+                                        ?>
+                                            <rect x="<?php echo $bar_xs[$idx]; ?>" y="<?php echo $y; ?>" width="20" height="<?php echo $h; ?>" fill="var(--orange)" rx="4"/>
+                                        <?php endforeach; ?>
                                     </svg>
                                 </div>
                             </div>

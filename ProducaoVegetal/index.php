@@ -22,10 +22,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         
         // Verificar senha (suporta password_hash)
         if (password_verify($senha, $usuario_db['senha'])) {
-            $_SESSION['user_id'] = $usuario_db['id_usuario'];
-            $_SESSION['user_nome'] = $usuario_db['nome'];
-            $_SESSION['user_email'] = $usuario_db['email'];
+            $_SESSION['user_id']     = $usuario_db['id_usuario'];
+            $_SESSION['user_nome']   = $usuario_db['nome'];
+            $_SESSION['user_email']  = $usuario_db['email'];
             $_SESSION['user_perfil'] = $usuario_db['perfil'];
+            $_SESSION['user_foto']   = $usuario_db['foto_perfil'] ?? '';
+            registrar_log('Login realizado');
             
             header("Location: dashboard.php");
             exit;

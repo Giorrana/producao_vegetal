@@ -49,4 +49,30 @@ function restringir_pagina_visitante() {
         exit;
     }
 }
+
+// Restringe acesso a apenas admins (redireciona dashboard se não for admin)
+function restringir_pagina_admin() {
+    if (!e_admin()) {
+        header("Location: dashboard.php?erro=restrito");
+        exit;
+    }
+}
+
+// Verifica se o usuário logado é operador
+function e_operador() {
+    return isset($_SESSION['user_perfil']) && $_SESSION['user_perfil'] === 'operador';
+}
+
+// Registra uma operação na tabela de auditoria (log)
+function registrar_log(string $operacao): void {
+    global $conn;
+    if (!isset($conn) || !$conn || !isset($_SESSION['user_id'])) return;
+    $id_usuario = intval($_SESSION['user_id']);
+    $operacao   = substr(trim($operacao), 0, 100);
+    $stmt = $conn->prepare("INSERT INTO log (operacao, id_usuario) VALUES (?, ?)");
+    if ($stmt) {
+        $stmt->bind_param("si", $operacao, $id_usuario);
+        $stmt->execute();
+    }
+}
 ?>

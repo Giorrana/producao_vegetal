@@ -21,6 +21,7 @@ if (isset($_GET['action']) && $_GET['action'] === 'delete' && isset($_GET['id'])
         } else {
             $delete_query = "DELETE FROM usuarios WHERE id_usuario = $id_del AND perfil = 'visitante'";
             if (mysqli_query($conn, $delete_query)) {
+                registrar_log("Usuário visitante removido #$id_del");
                 $msg_sucesso = "Usuário visitante removido com sucesso!";
             } else {
                 $msg_erro = "Erro ao remover usuário: " . mysqli_error($conn);

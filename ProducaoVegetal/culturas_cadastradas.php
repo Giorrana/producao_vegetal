@@ -24,6 +24,7 @@ if (isset($_GET['action']) && $_GET['action'] === 'delete' && isset($_GET['id'])
         } else {
             $delete_query = "DELETE FROM culturas WHERE id_cultura = $id_del AND id_usuario = $id_usuario";
             if (mysqli_query($conn, $delete_query)) {
+                registrar_log("Cultura excluída #$id_del");
                 $msg_sucesso = "Cultura excluída com sucesso!";
             } else {
                 $msg_erro = "Erro ao excluir cultura: " . mysqli_error($conn);
@@ -69,7 +70,8 @@ $activePage = 'culturas';
     <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;700;900&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <link rel="stylesheet" href="style.css">
-
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/sweetalert2@11/dist/sweetalert2.min.css">
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
     <script>
         if (localStorage.getItem('agro_theme') === 'dark') {
             document.documentElement.classList.add('dark-theme');
@@ -162,8 +164,16 @@ $activePage = 'culturas';
                                         </div>
                                     </div>
                                     
-                                    <?php if (!e_visitante()): ?>
-                                        <div class="crop-actions">
+                                    <div class="crop-actions">
+                                        <?php if (!empty($cultura['observacoes'])): ?>
+                                            <button
+                                                class="btn-action btn-info"
+                                                onclick="verObservacao(`<?php echo htmlspecialchars(addslashes($cultura['observacoes'])); ?>`)"
+                                                title="Ver observações">
+                                                <i class="fa-solid fa-comment-dots"></i>
+                                            </button>
+                                        <?php endif; ?>
+                                        <?php if (!e_visitante()): ?>
                                             <a href="cadastro_culturas.php?editId=<?php echo $cultura['id_cultura']; ?>" class="btn-action btn-edit">
                                                 <i class="fa-solid fa-pen-to-square"></i>
                                             </a>
@@ -172,8 +182,8 @@ $activePage = 'culturas';
                                                onclick="return confirm('Tem certeza que deseja excluir esta cultura do seu catálogo?')">
                                                 <i class="fa-solid fa-trash-can"></i>
                                             </a>
-                                        </div>
-                                    <?php endif; ?>
+                                        <?php endif; ?>
+                                    </div>
                                 </div>
                             <?php endforeach; ?>
                         <?php endif; ?>
@@ -191,6 +201,15 @@ $activePage = 'culturas';
             sidebar.classList.toggle('active');
             overlay.classList.toggle('active');
         }
+        function verObservacao(obs){
+        Swal.fire({
+            title: "Observações",
+            html: obs.replace(/\n/g,"<br>"),
+            icon: "info",
+            confirmButtonText: "Fechar"
+        });
+        }
     </script>
+    
 </body>
 </html>

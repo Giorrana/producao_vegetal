@@ -14,7 +14,15 @@
             --dark-green: #143d1a; /* Verde escuro do texto */
             --border-color: #61bb68;
         }
+        .btn-info{
+            background:#2563eb;
+            color:#fff;
+            border:none;
+        }
 
+        .btn-info:hover{
+            background:#1d4ed8;
+        }
         /* Fundo da tela inteira */
         body {
             background-color: var(--bg-color);

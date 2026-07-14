@@ -18,6 +18,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['ajax_manejo'])) {
     $qty_usada      = !empty($_POST['quantidade_usada']) ? floatval($_POST['quantidade_usada']) : null;
     $operador       = trim($_POST['operador'] ?? '');
     $observacoes    = trim($_POST['observacoes'] ?? '');
+    $data_cuidado   = !empty($_POST['data_cuidado']) ? trim($_POST['data_cuidado']) : date('Y-m-d H:i:s');
+    // Convert datetime-local format (YYYY-MM-DDTHH:MM) to MySQL datetime
+    $data_cuidado   = str_replace('T', ' ', $data_cuidado);
+    if (strlen($data_cuidado) === 16) $data_cuidado .= ':00'; // append seconds if missing
     $id_usuario     = $_SESSION['user_id'];
 
     // Verificar se o plantio pertence a este usuário
@@ -50,16 +54,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['ajax_manejo'])) {
     }
 
     // Inserir log no caderno de campo
-    $stmt_ins = $conn->prepare("INSERT INTO cuidados_plantio(id_plantio,tipo_manejo,id_item,quantidade_usada,custo_calculado,responsavel)VALUES (?,?,?,?,?,?)"
-);
-    $stmt_ins->bind_param("isidds",$id_plantio,$tipo_manejo,$id_item,$qty_usada,$custo_aplic,$operador
-);
+    $stmt_ins = $conn->prepare("INSERT INTO cuidados_plantio(id_plantio,tipo_manejo,id_item,quantidade_usada,custo_calculado,responsavel,observacoes,data_cuidado)VALUES (?,?,?,?,?,?,?,?)");
+    $stmt_ins->bind_param("isiddsss", $id_plantio, $tipo_manejo, $id_item, $qty_usada, $custo_aplic, $operador, $observacoes, $data_cuidado);
 
     if ($stmt_ins->execute()) {
         // Auto-update irrigado flag se for Irrigacao
         if ($tipo_manejo === 'Irrigacao') {
             $conn->query("UPDATE plantios p JOIN culturas c ON p.id_cultura = c.id_cultura SET p.irrigado=1, p.dias_irrigados=COALESCE(p.dias_irrigados,0)+1 WHERE p.id_plantio=$id_plantio AND c.id_usuario=$id_usuario");
         }
+        registrar_log("Manejo registrado: $tipo_manejo (plantio #$id_plantio)");
         echo json_encode(['ok'=>true, 'custo'=>$custo_aplic]);
     } else {
         echo json_encode(['ok'=>false, 'msg'=>$stmt_ins->error]);
@@ -106,6 +109,7 @@ if (isset($_GET['action']) && !e_visitante()) {
                 $stmt3->bind_param("i", $id);
                 $stmt3->execute();
                 mysqli_commit($conn);
+                registrar_log("Plantio excluído #$id");
                 header("Location: plantios_ativos.php?msg=excluido&filtro=$filtro");
                 exit;
             } catch (Exception $e) {
@@ -193,6 +197,11 @@ if ($result) {
 $insumos_modal = [];
 $res_ins = $conn->query("SELECT id_item, nome_item, categoria, unidade_medida, quantidade FROM estoque WHERE quantidade > 0 AND id_usuario = $id_usuario ORDER BY nome_item ASC");
 if ($res_ins) $insumos_modal = $res_ins->fetch_all(MYSQLI_ASSOC);
+
+// ─── BUSCAR OPERADORES E ADMINS PARA MODAL ──────────────────────────────────
+$operadores_modal = [];
+$res_ops = $conn->query("SELECT id_usuario, nome, perfil FROM usuarios WHERE perfil IN ('admin','operador') ORDER BY nome ASC");
+if ($res_ops) $operadores_modal = $res_ops->fetch_all(MYSQLI_ASSOC);
 
 $activePage = 'plantios';
 ?>
@@ -534,6 +543,18 @@ $activePage = 'plantios';
             white-space: nowrap;
         }
         .toast-msg.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+
+        .log-obs {
+            display: block;
+            margin-top: 4px;
+            font-size: 11px;
+            color: #6366f1;
+            background: rgba(99,102,241,.08);
+            border-radius: 6px;
+            padding: 3px 7px;
+            font-style: italic;
+            line-height: 1.4;
+        }
     </style>
 </head>
 <body>
@@ -619,12 +640,11 @@ $activePage = 'plantios';
                                 <!-- Header -->
                                 <div class="plantio-header">
                                     <div class="plantio-icon"><i class="fa-solid <?php echo $fa_icon; ?>" style="font-size:22px;color:var(--primary-green);"></i></div>
-                                    <div class="plantio-info">
+                                    <div class="plantio-info" style="flex:1;min-width:0;">
                                         <h4>
                                             <?php echo htmlspecialchars($p['nome_cultura']); ?>
                                         </h4>
                                         <p>
-                                            
                                             <i class="fa-solid fa-location-dot" style="color:var(--primary-green);"></i>
                                             <?php echo htmlspecialchars($p['local_canteiro']); ?>
                                             <span style="font-size:11px;color:var(--text-gray);margin-left:8px;">(<?php echo htmlspecialchars($p['quantidade_plantada']); ?> un.)</span>
@@ -633,14 +653,19 @@ $activePage = 'plantios';
                                             <span class="lote-badge"><i class="fa-solid fa-barcode"></i> <?php echo htmlspecialchars($p['codigo_lote']); ?></span>
                                         <?php endif; ?>
                                     </div>
-                                    <?php if ($p['custo_total'] > 0): ?>
-                                        <div class="custo-badge"><i class="fa-solid fa-circle-dollar-to-slot"></i> R$ <?php echo number_format($p['custo_total'],2,',','.'); ?></div>
-                                    <?php endif; ?>
-                                    <a href="plantios_ativos.php?action=delete&id=<?php echo $p['id_plantio']; ?>&filtro=<?php echo urlencode($filtro); ?>"
-                                    class="btn-action btn-delete"
-                                    onclick="return confirm('Deseja realmente excluir este plantio? Todos os manejos registrados também serão apagados.');">
-                                     <i class="fa-solid fa-trash-can"></i>
-                                    </a>
+                                    <div style="display:flex;align-items:center;gap:6px;flex-shrink:0;">
+                                        <?php if ($p['custo_total'] > 0): ?>
+                                            <div class="custo-badge"><i class="fa-solid fa-circle-dollar-to-slot"></i> R$ <?php echo number_format($p['custo_total'],2,',','.'); ?></div>
+                                        <?php endif; ?>
+                                        <?php if (!e_visitante()): ?>
+                                        <a href="plantios_ativos.php?action=delete&id=<?php echo $p['id_plantio']; ?>&filtro=<?php echo urlencode($filtro); ?>"
+                                            class="btn-action btn-delete"
+                                            title="Excluir plantio"
+                                            onclick="return confirm('Deseja realmente excluir este plantio? Todos os manejos registrados também serão apagados.'); ">
+                                            <i class="fa-solid fa-trash-can"></i>
+                                        </a>
+                                        <?php endif; ?>
+                                    </div>
                                 </div>
 
                                 <!-- DAP Badge -->
@@ -709,19 +734,25 @@ $activePage = 'plantios';
                                             if ($log['tipo_manejo']==='Irrigacao')  { $li_cls='irr'; $li_icon='fa-droplet'; }
                                             elseif ($log['tipo_manejo']==='Adubacao')   { $li_cls='adu'; $li_icon='fa-leaf'; }
                                             elseif ($log['tipo_manejo']==='Defensivo')  { $li_cls='def'; $li_icon='fa-flask'; }
+                                            // Translate tipo_manejo to label
+                                            $tipo_labels = ['Irrigacao'=>'Irrigação','Adubacao'=>'Adubação','Defensivo'=>'Aplicação de Defensivo','Outro'=>'Outro'];
+                                            $tipo_label = $tipo_labels[$log['tipo_manejo']] ?? htmlspecialchars($log['tipo_manejo']);
                                         ?>
                                             <div class="log-entry">
                                                 <div class="log-icon <?php echo $li_cls; ?>"><i class="fa-solid <?php echo $li_icon; ?>"></i></div>
                                                 <div class="log-info">
-                                                    <b><?php echo htmlspecialchars($log['tipo_manejo']); ?></b>
+                                                    <b><?php echo $tipo_label; ?></b>
                                                     <span class="log-meta">
                                                         <?php if (!empty($log['nome_item'])): ?>
                                                             <?php echo htmlspecialchars($log['nome_item']); ?>
                                                             <?php if ($log['quantidade_usada']): ?> — <?php echo number_format($log['quantidade_usada'],2,',','.'); ?> un.<?php endif; ?>
                                                         <?php endif; ?>
-                                                        <?php if (!empty($log['operador'])): ?> · <?php echo htmlspecialchars($log['operador']); ?><?php endif; ?>
+                                                        <?php if (!empty($log['responsavel'])): ?> · <i class="fa-solid fa-user" style="font-size:10px;"></i> <?php echo htmlspecialchars($log['responsavel']); ?><?php endif; ?>
                                                         · <?php echo date('d/m/Y H:i', strtotime($log['data_cuidado'])); ?>
                                                     </span>
+                                                    <?php if (!empty($log['observacoes'])): ?>
+                                                        <span class="log-obs"><i class="fa-solid fa-comment-dots" style="color:#6366f1;font-size:10px;"></i> <?php echo nl2br(htmlspecialchars($log['observacoes'])); ?></span>
+                                                    <?php endif; ?>
                                                 </div>
                                                 <?php if ($log['custo_calculado']): ?>
                                                     <div class="log-cost">R$ <?php echo number_format($log['custo_calculado'],2,',','.'); ?></div>
@@ -785,8 +816,27 @@ $activePage = 'plantios';
 
             <div class="modal-field">
                 <label>Operador Responsável</label>
-                <input type="text" name="operador" id="m-operador" placeholder="Nome de quem realizou o manejo">
+                <select name="operador" id="m-operador">
+                    <option value="">— Selecione o operador —</option>
+                    <?php foreach ($operadores_modal as $op): ?>
+                        <option value="<?php echo htmlspecialchars($op['nome']); ?>">
+                            <?php echo htmlspecialchars($op['nome']); ?>
+                            (<?php echo $op['perfil'] === 'admin' ? 'Admin' : 'Operador'; ?>)
+                        </option>
+                    <?php endforeach; ?>
+                </select>
             </div>
+
+            <div class="modal-field">
+                <label>Data do Manejo *</label>
+                <input
+                    type="datetime-local"
+                    name="data_cuidado"
+                    id="m-data-cuidado"
+                    value="<?php echo date('Y-m-d\TH:i'); ?>"
+                    required>
+            </div>
+
 
             <div class="modal-field">
                 <label>Observações</label>

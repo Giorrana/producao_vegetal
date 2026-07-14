@@ -50,6 +50,7 @@ if (isset($_GET['action'])) {
                     $msg_erro = "A quantidade não pode ser menor que zero!";
                 }
             }
+            
         }
     }
 }
@@ -186,7 +187,22 @@ $activePage = 'estoque';
                                         </div>
                                     </div>
                                     
-                                    
+                                    <div class="item-right">
+                                        <!-- Controles Rápidos de Quantidade (Apenas Admin) -->
+                                        <?php if (!e_visitante()): ?>                                        
+                                            <!-- Ações de Editar e Excluir -->
+                                            <div class="action-btns">
+                                                <a href="cadastro_insumos.php?editId=<?php echo $item['id_item']; ?>" class="btn-action btn-edit">
+                                                    <i class="fa-solid fa-pen-to-square"></i>
+                                                </a>
+                                                <a href="estoque.php?action=delete&id=<?php echo $item['id_item']; ?>&filtro=<?php echo $filtro; ?>" 
+                                                   class="btn-action btn-delete" 
+                                                   onclick="return confirm('Deseja realmente remover este insumo do seu estoque?')">
+                                                    <i class="fa-solid fa-trash-can"></i>
+                                                </a>
+                                            </div>
+                                        <?php endif;?>
+                                    </div>
                                 </div>
                             <?php endforeach; ?>
                         <?php endif; ?>

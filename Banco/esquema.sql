@@ -186,13 +186,14 @@ CREATE TABLE IF NOT EXISTS `colheitas` (
 -- ─────────────────────────────────────────────────────────────
 CREATE TABLE IF NOT EXISTS `cuidados_plantio` (
   `id_cuidado`      INT(11)       NOT NULL AUTO_INCREMENT,
-  `data_cuidado`    DATE              DEFAULT NULL,
+  `data_cuidado`    DATETIME          DEFAULT NULL,
   `id_plantio`      INT(11)           DEFAULT NULL,
   `responsavel`     VARCHAR(100)      DEFAULT NULL,
   `quantidade_usada` DECIMAL(10,2)    DEFAULT 0.00,
   `id_item`         INT(11)           DEFAULT NULL,
   `tipo_manejo`     VARCHAR(50)       DEFAULT NULL,
   `custo_calculado` DECIMAL(10,2)     DEFAULT 0.00,
+  `observacoes`     TEXT              DEFAULT NULL,
   PRIMARY KEY (`id_cuidado`),
   KEY `id_plantio` (`id_plantio`),
   KEY `id_item` (`id_item`),

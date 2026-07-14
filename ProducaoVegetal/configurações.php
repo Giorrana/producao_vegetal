@@ -9,6 +9,13 @@ $user_email = $_SESSION['user_email'];
 $user_perfil= $_SESSION['user_perfil'];
 $iniciais   = obter_iniciais($user_nome);
 
+// Load current foto_perfil from DB
+$stmt_fp = $conn->prepare("SELECT foto_perfil FROM usuarios WHERE id_usuario = ?");
+$stmt_fp->bind_param("i", $user_id);
+$stmt_fp->execute();
+$row_fp = $stmt_fp->get_result()->fetch_assoc();
+$foto_perfil_atual = $row_fp['foto_perfil'] ?? '';
+
 $msg_ok  = '';
 $msg_err = '';
 
@@ -79,6 +86,66 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
         }
         exit;
     }
+
+    // ── Update Photo ──────────────────────────────────────────────────────────
+    if ($_POST['action'] === 'update_photo') {
+        $foto_tipo = trim($_POST['foto_tipo'] ?? 'url'); // 'url' or 'upload'
+        $nova_foto = '';
+
+        if ($foto_tipo === 'url') {
+            $url = trim($_POST['foto_url'] ?? '');
+            if (empty($url)) {
+                // Allow clearing the photo
+                $nova_foto = '';
+            } elseif (!filter_var($url, FILTER_VALIDATE_URL)) {
+                echo json_encode(['ok'=>false,'msg'=>'URL de foto inválida.']); exit;
+            } else {
+                $nova_foto = $url;
+            }
+        } elseif ($foto_tipo === 'upload') {
+            if (!isset($_FILES['foto_arquivo']) || $_FILES['foto_arquivo']['error'] !== UPLOAD_ERR_OK) {
+                echo json_encode(['ok'=>false,'msg'=>'Erro ao receber o arquivo. Verifique o tamanho (máx. 2MB).']); exit;
+            }
+            $file = $_FILES['foto_arquivo'];
+            $allowed_types = ['image/jpeg','image/png','image/gif','image/webp'];
+            $finfo = finfo_open(FILEINFO_MIME_TYPE);
+            $mime = finfo_file($finfo, $file['tmp_name']);
+            finfo_close($finfo);
+            if (!in_array($mime, $allowed_types)) {
+                echo json_encode(['ok'=>false,'msg'=>'Tipo de arquivo inválido. Use JPG, PNG, GIF ou WEBP.']); exit;
+            }
+            if ($file['size'] > 2 * 1024 * 1024) {
+                echo json_encode(['ok'=>false,'msg'=>'Arquivo muito grande. Máximo 2MB.']); exit;
+            }
+            $ext = ['image/jpeg'=>'jpg','image/png'=>'png','image/gif'=>'gif','image/webp'=>'webp'][$mime];
+            $filename = 'avatar_' . $user_id . '_' . time() . '.' . $ext;
+            $upload_dir = __DIR__ . '/uploads/avatars/';
+            if (!is_dir($upload_dir)) mkdir($upload_dir, 0755, true);
+            // Delete old uploaded avatar if exists
+            $stmt_old = $conn->prepare("SELECT foto_perfil FROM usuarios WHERE id_usuario = ?");
+            $stmt_old->bind_param("i", $user_id);
+            $stmt_old->execute();
+            $old_row = $stmt_old->get_result()->fetch_assoc();
+            if (!empty($old_row['foto_perfil']) && strpos($old_row['foto_perfil'], 'uploads/avatars/') !== false) {
+                $old_file = __DIR__ . '/' . $old_row['foto_perfil'];
+                if (file_exists($old_file)) @unlink($old_file);
+            }
+            if (!move_uploaded_file($file['tmp_name'], $upload_dir . $filename)) {
+                echo json_encode(['ok'=>false,'msg'=>'Falha ao salvar o arquivo no servidor.']); exit;
+            }
+            $nova_foto = 'uploads/avatars/' . $filename;
+        }
+
+        $stmt_photo = $conn->prepare("UPDATE usuarios SET foto_perfil = ? WHERE id_usuario = ?");
+        $stmt_photo->bind_param("si", $nova_foto, $user_id);
+        if ($stmt_photo->execute()) {
+            $_SESSION['user_foto'] = $nova_foto;
+            echo json_encode(['ok'=>true,'foto'=>$nova_foto]);
+        } else {
+            echo json_encode(['ok'=>false,'msg'=>'Erro ao salvar foto: '.$stmt_photo->error]);
+        }
+        exit;
+    }
 }
 
 $activePage = 'configuracoes';
@@ -131,8 +198,12 @@ $activePage = 'configuracoes';
                 <div class="settings-card">
                     <div class="profile-row">
                         <div class="profile-info">
-                            <div class="profile-avatar" id="avatar-disp" style="background:var(--primary-green);color:white;display:flex;justify-content:center;align-items:center;font-size:24px;font-weight:800;border-radius:16px;width:60px;height:60px;flex-shrink:0;">
-                                <?php echo htmlspecialchars($iniciais); ?>
+                            <div class="profile-avatar" id="avatar-disp" style="background:var(--primary-green);color:white;display:flex;justify-content:center;align-items:center;font-size:24px;font-weight:800;border-radius:16px;width:60px;height:60px;flex-shrink:0;overflow:hidden;">
+                                <?php if (!empty($foto_perfil_atual)): ?>
+                                    <img id="avatar-img" src="<?php echo htmlspecialchars($foto_perfil_atual); ?>" alt="Foto de Perfil" style="width:100%;height:100%;object-fit:cover;border-radius:16px;">
+                                <?php else: ?>
+                                    <span id="avatar-iniciais"><?php echo htmlspecialchars($iniciais); ?></span>
+                                <?php endif; ?>
                             </div>
                             <div class="profile-text">
                                 <h2 id="disp-nome"><?php echo htmlspecialchars($user_nome); ?></h2>
@@ -209,6 +280,49 @@ $activePage = 'configuracoes';
                             </label>
                         </div>
                     </div>
+                </div>
+
+                <!-- CARD: Foto de Perfil -->
+                <div class="settings-card cfg-section">
+                    <h3 class="section-title"><i class="fa-solid fa-camera" style="color:#8b5cf6;margin-right:8px;"></i>Foto de Perfil</h3>
+                    <!-- Tab switcher -->
+                    <div style="display:flex;gap:8px;margin-bottom:14px;">
+                        <button id="tab-url" class="cfg-btn" style="flex:1;" onclick="switchFotoTab('url')">
+                            <i class="fa-solid fa-link"></i> URL
+                        </button>
+                        <button id="tab-upload" class="cfg-btn secondary" style="flex:1;" onclick="switchFotoTab('upload')">
+                            <i class="fa-solid fa-upload"></i> Enviar Arquivo
+                        </button>
+                    </div>
+                    <!-- URL tab -->
+                    <div id="painel-url">
+                        <div class="cfg-field">
+                            <label class="cfg-label">URL da Foto de Perfil</label>
+                            <input class="cfg-input" id="inp-foto-url" type="url" placeholder="https://exemplo.com/foto.jpg" value="<?php echo (strpos($foto_perfil_atual,'http')===0)?htmlspecialchars($foto_perfil_atual):''; ?>">
+                        </div>
+                        <button class="cfg-btn" onclick="salvarFotoUrl()">
+                            <i class="fa-solid fa-floppy-disk"></i> Salvar URL
+                        </button>
+                    </div>
+                    <!-- Upload tab -->
+                    <div id="painel-upload" style="display:none;">
+                        <div class="cfg-field">
+                            <label class="cfg-label">Arquivo de Imagem (JPG, PNG, GIF ou WEBP — máx. 2MB)</label>
+                            <input class="cfg-input" id="inp-foto-arquivo" type="file" accept="image/jpeg,image/png,image/gif,image/webp" style="padding:8px;">
+                        </div>
+                        <button class="cfg-btn" onclick="salvarFotoUpload()">
+                            <i class="fa-solid fa-cloud-arrow-up"></i> Fazer Upload
+                        </button>
+                    </div>
+                    <!-- Remove photo -->
+                    <?php if (!empty($foto_perfil_atual)): ?>
+                    <div style="margin-top:10px;">
+                        <button class="cfg-btn secondary" onclick="removerFoto()">
+                            <i class="fa-solid fa-trash-can" style="color:#ef4444;"></i> Remover Foto
+                        </button>
+                    </div>
+                    <?php endif; ?>
+                    <div class="cfg-msg" id="msg-foto"></div>
                 </div>
 
                 <!-- CARD: Conta -->
@@ -305,6 +419,79 @@ $activePage = 'configuracoes';
         el.className   = 'cfg-msg ' + (isOk ? 'ok' : 'err');
         el.style.display = 'block';
         setTimeout(() => el.style.display='none', 4000);
+    }
+
+    // ── Photo Tab Switcher ────────────────────────────────────────────────────
+    function switchFotoTab(tab) {
+        document.getElementById('painel-url').style.display    = tab === 'url'    ? 'block' : 'none';
+        document.getElementById('painel-upload').style.display = tab === 'upload' ? 'block' : 'none';
+        document.getElementById('tab-url').className    = 'cfg-btn' + (tab === 'url'    ? '' : ' secondary');
+        document.getElementById('tab-upload').className = 'cfg-btn' + (tab === 'upload' ? '' : ' secondary');
+    }
+
+    // ── Update Avatar preview helper ─────────────────────────────────────────
+    function updateAvatarPreview(fotoSrc) {
+        const disp = document.getElementById('avatar-disp');
+        if (fotoSrc) {
+            disp.innerHTML = `<img src="${fotoSrc}" alt="Foto de Perfil" style="width:100%;height:100%;object-fit:cover;border-radius:16px;">`;
+        } else {
+            disp.innerHTML = `<span id="avatar-iniciais"><?php echo htmlspecialchars($iniciais); ?></span>`;
+        }
+    }
+
+    // ── Save Photo via URL ───────────────────────────────────────────────────
+    async function salvarFotoUrl() {
+        const msg  = document.getElementById('msg-foto');
+        const url  = document.getElementById('inp-foto-url').value.trim();
+        const data = new FormData();
+        data.append('action', 'update_photo');
+        data.append('foto_tipo', 'url');
+        data.append('foto_url', url);
+        try {
+            const res  = await fetch('configurações.php', { method:'POST', body:data });
+            const json = await res.json();
+            showMsg(msg, json.ok, json.ok ? '✅ Foto atualizada com sucesso!' : json.msg);
+            if (json.ok) updateAvatarPreview(json.foto);
+        } catch(e) { showMsg(msg, false, 'Erro de conexão.'); }
+    }
+
+    // ── Save Photo via File Upload ────────────────────────────────────────────
+    async function salvarFotoUpload() {
+        const msg   = document.getElementById('msg-foto');
+        const input = document.getElementById('inp-foto-arquivo');
+        if (!input.files || !input.files[0]) {
+            showMsg(msg, false, 'Selecione um arquivo primeiro.'); return;
+        }
+        const file = input.files[0];
+        if (file.size > 2 * 1024 * 1024) {
+            showMsg(msg, false, 'Arquivo muito grande. Máximo 2MB.'); return;
+        }
+        const data = new FormData();
+        data.append('action', 'update_photo');
+        data.append('foto_tipo', 'upload');
+        data.append('foto_arquivo', file);
+        try {
+            const res  = await fetch('configurações.php', { method:'POST', body:data });
+            const json = await res.json();
+            showMsg(msg, json.ok, json.ok ? '✅ Foto enviada com sucesso!' : json.msg);
+            if (json.ok) updateAvatarPreview(json.foto);
+        } catch(e) { showMsg(msg, false, 'Erro de conexão.'); }
+    }
+
+    // ── Remove Photo ─────────────────────────────────────────────────────────
+    async function removerFoto() {
+        if (!confirm('Deseja remover sua foto de perfil?')) return;
+        const msg  = document.getElementById('msg-foto');
+        const data = new FormData();
+        data.append('action', 'update_photo');
+        data.append('foto_tipo', 'url');
+        data.append('foto_url', '');
+        try {
+            const res  = await fetch('configurações.php', { method:'POST', body:data });
+            const json = await res.json();
+            showMsg(msg, json.ok, json.ok ? '✅ Foto removida.' : json.msg);
+            if (json.ok) updateAvatarPreview('');
+        } catch(e) { showMsg(msg, false, 'Erro de conexão.'); }
     }
 </script>
 </body>
