@@ -23,7 +23,7 @@ switch ($tipo) {
             JOIN plantios p ON c.id_plantio = p.id_plantio 
             JOIN culturas cult ON p.id_cultura = cult.id_cultura 
             WHERE YEAR(c.data_colheita) = YEAR(CURDATE()) 
-              AND cult.id_usuario = $id_usuario 
+              AND " . escopo_sql('cult.id_usuario') . " 
             GROUP BY MONTH(c.data_colheita)
         ");
         if ($q_mes) {
@@ -41,7 +41,7 @@ switch ($tipo) {
             FROM cuidados_plantio cp
             JOIN plantios p ON cp.id_plantio = p.id_plantio
             JOIN culturas cult ON p.id_cultura = cult.id_cultura
-            WHERE cult.id_usuario = $id_usuario
+            WHERE " . escopo_sql('cult.id_usuario') . "
             GROUP BY cp.tipo_manejo
             ORDER BY total_custo DESC
         ");
@@ -62,7 +62,7 @@ switch ($tipo) {
             FROM plantios p 
             JOIN culturas c ON p.id_cultura = c.id_cultura 
             WHERE p.colhido = 0 
-              AND c.id_usuario = $id_usuario
+              AND " . escopo_sql('c.id_usuario') . "
         ");
         if ($q_plant) {
             while ($row = $q_plant->fetch_assoc()) {
@@ -85,7 +85,7 @@ switch ($tipo) {
             FROM colheitas col
             JOIN plantios p ON col.id_plantio = p.id_plantio
             JOIN culturas c ON p.id_cultura = c.id_cultura
-            WHERE c.id_usuario = $id_usuario
+            WHERE " . escopo_sql('c.id_usuario') . "
             GROUP BY c.id_cultura
             ORDER BY total_kg DESC
             LIMIT 5

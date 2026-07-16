@@ -30,7 +30,15 @@ function e_admin() {
 
 // Verifica se o usuário logado é visitante
 function e_visitante() {
-    return isset($_SESSION['user_perfil']) && $_SESSION['user_perfil'] === 'visitante';
+    return false;
+}
+
+// Retorna a condição SQL de escopo por usuário: admin vê tudo, operador só o seu.
+// $alias: nome da coluna/alias no SQL que representa o dono do registro (ex: 'c.id_usuario')
+function escopo_sql(string $alias = 'id_usuario'): string {
+    if (e_admin()) return "1=1";
+    $id = intval($_SESSION['user_id'] ?? 0);
+    return "$alias = $id";
 }
 
 // Bloqueia o acesso se for visitante (ex: para ações de edição/exclusão)

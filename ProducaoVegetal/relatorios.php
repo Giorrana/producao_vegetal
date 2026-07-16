@@ -6,15 +6,15 @@ verificar_login();
 $id_usuario = $_SESSION['user_id'];
 
 // ── Financeiro: Colheitas por Categoria ──────────────────────────────────────
-$q_horta = mysqli_query($conn, "SELECT SUM(c.quantidade_colhida) as total FROM colheitas c JOIN plantios p ON c.id_plantio=p.id_plantio JOIN culturas cult ON p.id_cultura=cult.id_cultura WHERE cult.id_categoria=1 AND cult.id_usuario = $id_usuario");
+$q_horta = mysqli_query($conn, "SELECT SUM(c.quantidade_colhida) as total FROM colheitas c JOIN plantios p ON c.id_plantio=p.id_plantio JOIN culturas cult ON p.id_cultura=cult.id_cultura WHERE cult.id_categoria=1 AND " . escopo_sql('cult.id_usuario'));
 $total_horta = $q_horta ? (mysqli_fetch_assoc($q_horta)['total'] ?? 0) : 0;
 
-$q_pomar = mysqli_query($conn, "SELECT SUM(c.quantidade_colhida) as total FROM colheitas c JOIN plantios p ON c.id_plantio=p.id_plantio JOIN culturas cult ON p.id_cultura=cult.id_cultura WHERE cult.id_categoria=2 AND cult.id_usuario = $id_usuario");
+$q_pomar = mysqli_query($conn, "SELECT SUM(c.quantidade_colhida) as total FROM colheitas c JOIN plantios p ON c.id_plantio=p.id_plantio JOIN culturas cult ON p.id_cultura=cult.id_cultura WHERE cult.id_categoria=2 AND " . escopo_sql('cult.id_usuario'));
 $total_pomar = $q_pomar ? (mysqli_fetch_assoc($q_pomar)['total'] ?? 0) : 0;
 
 // Produtividade Mensal
 $mensal = array_fill(1, 12, 0);
-$q_mes = mysqli_query($conn, "SELECT MONTH(c.data_colheita) as mes, SUM(c.quantidade_colhida) as total FROM colheitas c JOIN plantios p ON c.id_plantio = p.id_plantio JOIN culturas cult ON p.id_cultura = cult.id_cultura WHERE YEAR(c.data_colheita)=YEAR(CURDATE()) AND cult.id_usuario = $id_usuario GROUP BY MONTH(c.data_colheita)");
+$q_mes = mysqli_query($conn, "SELECT MONTH(c.data_colheita) as mes, SUM(c.quantidade_colhida) as total FROM colheitas c JOIN plantios p ON c.id_plantio = p.id_plantio JOIN culturas cult ON p.id_cultura = cult.id_cultura WHERE YEAR(c.data_colheita)=YEAR(CURDATE()) AND " . escopo_sql('cult.id_usuario') . " GROUP BY MONTH(c.data_colheita)");
 if ($q_mes) { while ($r = mysqli_fetch_assoc($q_mes)) { $mensal[intval($r['mes'])] = floatval($r['total']); } }
 $max_mensal = max(max($mensal), 10);
 
@@ -22,13 +22,13 @@ $max_mensal = max(max($mensal), 10);
 $custo_insumos  = 0;
 $custo_manejo   = 0;
 if (e_admin()) {
-    $qci = $conn->query("SELECT SUM(quantidade * custo_aquisicao) AS t FROM estoque WHERE id_usuario = $id_usuario"); if ($qci) $custo_insumos  = $qci->fetch_assoc()['t'] ?? 0;
-    $qcm = $conn->query("SELECT SUM(cp.custo_calculado) AS t FROM cuidados_plantio cp JOIN plantios p ON cp.id_plantio = p.id_plantio JOIN culturas cult ON p.id_cultura = cult.id_cultura WHERE cult.id_usuario = $id_usuario");     if ($qcm) $custo_manejo   = $qcm->fetch_assoc()['t'] ?? 0;
+    $qci = $conn->query("SELECT SUM(quantidade * custo_aquisicao) AS t FROM estoque WHERE " . escopo_sql('id_usuario')); if ($qci) $custo_insumos  = $qci->fetch_assoc()['t'] ?? 0;
+    $qcm = $conn->query("SELECT SUM(cp.custo_calculado) AS t FROM cuidados_plantio cp JOIN plantios p ON cp.id_plantio = p.id_plantio JOIN culturas cult ON p.id_cultura = cult.id_cultura WHERE " . escopo_sql('cult.id_usuario'));     if ($qcm) $custo_manejo   = $qcm->fetch_assoc()['t'] ?? 0;
 }
 
 // ── Fitossanitário: Status de plantios ───────────────────────────────────────
 $status_dist = ['Germinação'=>0,'Crescimento'=>0,'Floração'=>0,'Pronto'=>0];
-$q_plant = $conn->query("SELECT p.data_plantio, c.tempo_medio_crescimento FROM plantios p JOIN culturas c ON p.id_cultura=c.id_cultura WHERE p.colhido=0 AND c.id_usuario = $id_usuario");
+$q_plant = $conn->query("SELECT p.data_plantio, c.tempo_medio_crescimento FROM plantios p JOIN culturas c ON p.id_cultura=c.id_cultura WHERE p.colhido=0 AND " . escopo_sql('c.id_usuario'));
 if ($q_plant) {
     while ($row = $q_plant->fetch_assoc()) {
         $dias_ciclo = intval($row['tempo_medio_crescimento']) ?: 90;
@@ -43,7 +43,7 @@ if ($q_plant) {
 $total_plant = max(array_sum($status_dist), 1);
 
 // ── Colheitas Recentes ────────────────────────────────────────────────────────
-$q_recentes = $conn->query("SELECT c.*, cult.nome_cultura, p.codigo_lote FROM colheitas c JOIN plantios p ON c.id_plantio=p.id_plantio JOIN culturas cult ON p.id_cultura=cult.id_cultura WHERE cult.id_usuario = $id_usuario ORDER BY c.id_colheita DESC LIMIT 10");
+$q_recentes = $conn->query("SELECT c.*, cult.nome_cultura, p.codigo_lote FROM colheitas c JOIN plantios p ON c.id_plantio=p.id_plantio JOIN culturas cult ON p.id_cultura=cult.id_cultura WHERE " . escopo_sql('cult.id_usuario') . " ORDER BY c.id_colheita DESC LIMIT 10");
 $recentes = [];
 if ($q_recentes) $recentes = $q_recentes->fetch_all(MYSQLI_ASSOC);
 
@@ -334,7 +334,7 @@ $activePage = 'relatorios';
 
                     <!-- Alertas de validade -->
                     <?php
-                    $q_val = $conn->query("SELECT nome_item, data_validade, categoria FROM estoque WHERE data_validade IS NOT NULL AND data_validade <= DATE_ADD(CURDATE(), INTERVAL 60 DAY) AND id_usuario = $id_usuario ORDER BY data_validade ASC LIMIT 10");
+                    $q_val = $conn->query("SELECT nome_item, data_validade, categoria FROM estoque WHERE data_validade IS NOT NULL AND data_validade <= DATE_ADD(CURDATE(), INTERVAL 60 DAY) AND " . escopo_sql('id_usuario') . " ORDER BY data_validade ASC LIMIT 10");
                     $validades = $q_val ? $q_val->fetch_all(MYSQLI_ASSOC) : [];
                     ?>
                     <div class="report-card" style="margin-top:16px;">
@@ -362,7 +362,7 @@ $activePage = 'relatorios';
                         <div class="rc-subtitle">LINHA DO TEMPO</div>
                         <h2 class="rc-title" style="margin-bottom:20px;">Plantios em Progresso</h2>
                         <?php
-                        $q_pl2 = $conn->query("SELECT p.*, c.nome_cultura, c.tempo_medio_crescimento FROM plantios p JOIN culturas c ON p.id_cultura=c.id_cultura WHERE p.colhido=0 AND c.id_usuario = $id_usuario ORDER BY p.data_plantio ASC LIMIT 10");
+                        $q_pl2 = $conn->query("SELECT p.*, c.nome_cultura, c.tempo_medio_crescimento FROM plantios p JOIN culturas c ON p.id_cultura=c.id_cultura WHERE p.colhido=0 AND " . escopo_sql('c.id_usuario') . " ORDER BY p.data_plantio ASC LIMIT 10");
                         $pl2 = $q_pl2 ? $q_pl2->fetch_all(MYSQLI_ASSOC) : [];
                         if (empty($pl2)):
                         ?>
@@ -397,7 +397,7 @@ $activePage = 'relatorios';
                         <div class="rc-subtitle">RASTREABILIDADE DE LOTES</div>
                         <h2 class="rc-title" style="margin-bottom:16px;">Lotes Ativos por Plantio</h2>
                         <?php
-                        $q_lotes = $conn->query("SELECT p.codigo_lote, p.data_plantio, p.local_canteiro, p.quantidade_plantada, c.nome_cultura, p.tamanho_area, p.unidade_area FROM plantios p JOIN culturas c ON p.id_cultura=c.id_cultura WHERE p.colhido=0 AND p.codigo_lote IS NOT NULL AND c.id_usuario = $id_usuario ORDER BY p.id_plantio DESC LIMIT 8");
+                        $q_lotes = $conn->query("SELECT p.codigo_lote, p.data_plantio, p.local_canteiro, p.quantidade_plantada, c.nome_cultura, p.tamanho_area, p.unidade_area FROM plantios p JOIN culturas c ON p.id_cultura=c.id_cultura WHERE p.colhido=0 AND p.codigo_lote IS NOT NULL AND " . escopo_sql('c.id_usuario') . " ORDER BY p.id_plantio DESC LIMIT 8");
                         $lotes = $q_lotes ? $q_lotes->fetch_all(MYSQLI_ASSOC) : [];
                         if (empty($lotes)): ?>
                             <p style="color:var(--text-gray);font-size:13px;"><i class="fa-solid fa-circle-info"></i> Nenhum lote ativo. Novos plantios gerarão códigos de lote automaticamente.</p>

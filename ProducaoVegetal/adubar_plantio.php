@@ -19,17 +19,18 @@ if ($id_plantio <= 0) {
     exit;
 }
 
-// Verificar se o plantio existe e pertence ao usuário
-$plantio_res = mysqli_query($conn, "SELECT p.*, c.nome_cultura FROM plantios p JOIN culturas c ON p.id_cultura = c.id_cultura WHERE p.id_plantio = $id_plantio AND p.colhido = 0 AND c.id_usuario = $id_usuario");
+// Verificar se o plantio existe e pertence ao escopo do usuário
+$plantio_res = mysqli_query($conn, "SELECT p.*, c.nome_cultura, c.id_usuario AS id_dono FROM plantios p JOIN culturas c ON p.id_cultura = c.id_cultura WHERE p.id_plantio = $id_plantio AND p.colhido = 0 AND " . escopo_sql('c.id_usuario'));
 if (!$plantio_res || mysqli_num_rows($plantio_res) == 0) {
     header("Location: plantios_ativos.php?erro=plantio_invalido");
     exit;
 }
 $plantio = mysqli_fetch_assoc($plantio_res);
 $nome_cultura = htmlspecialchars($plantio['nome_cultura']);
+$id_dono = $plantio['id_dono']; // para debitar do dono correto
 
-// Buscar adubos do estoque do usuário
-$adubos_res = mysqli_query($conn, "SELECT * FROM estoque WHERE categoria = 'Adubo' AND id_usuario = $id_usuario ORDER BY nome_item ASC");
+// Buscar adubos do estoque do dono do plantio
+$adubos_res = mysqli_query($conn, "SELECT * FROM estoque WHERE categoria = 'Adubo' AND id_usuario = $id_dono ORDER BY nome_item ASC");
 $adubos = [];
 if ($adubos_res) {
     while ($row = mysqli_fetch_assoc($adubos_res)) {
@@ -52,8 +53,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         } elseif ($quantidade <= 0) {
             $msg_erro = "Informe uma quantidade válida maior que zero.";
         } else {
-            // Verificar estoque disponível do usuário
-            $estoque_res = mysqli_query($conn, "SELECT quantidade, unidade_medida, nome_item, nivel_alerta FROM estoque WHERE id_item = $id_adubo AND id_usuario = $id_usuario");
+            // Verificar estoque disponível do dono do plantio
+            $estoque_res = mysqli_query($conn, "SELECT quantidade, unidade_medida, nome_item, nivel_alerta, custo_aquisicao FROM estoque WHERE id_item = $id_adubo AND id_usuario = $id_dono");
             $item_estoque = mysqli_fetch_assoc($estoque_res);
 
             if (!$item_estoque) {
@@ -74,13 +75,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 // 2. Descontar do estoque do usuário
                 $nova_qtd    = $item_estoque['quantidade'] - $quantidade;
                 $novo_status = ($nova_qtd <= $item_estoque['nivel_alerta']) ? 'Alerta' : 'Normal';
-                $upd_estoque = "UPDATE estoque SET quantidade = $nova_qtd, status_estoque = '$novo_status' WHERE id_item = $id_adubo AND id_usuario = $id_usuario";
+                $upd_estoque = "UPDATE estoque SET quantidade = $nova_qtd, status_estoque = '$novo_status' WHERE id_item = $id_adubo AND id_usuario = $id_dono";
 
                 if ($stmt_ins->execute() && mysqli_query($conn, $upd_estoque)) {
                     mysqli_commit($conn);
                     $msg_sucesso = "Adubação registrada com sucesso! " . number_format($quantidade, 2, ',', '.') . " " . $item_estoque['unidade_medida'] . " de \"" . htmlspecialchars($item_estoque['nome_item']) . "\" aplicados.";
                     // Recarregar adubos do usuário para refletir nova quantidade
-                    $adubos_res2 = mysqli_query($conn, "SELECT * FROM estoque WHERE categoria = 'Adubo' AND id_usuario = $id_usuario ORDER BY nome_item ASC");
+                    $adubos_res2 = mysqli_query($conn, "SELECT * FROM estoque WHERE categoria = 'Adubo' AND id_usuario = $id_dono ORDER BY nome_item ASC");
                     $adubos = [];
                     if ($adubos_res2) {
                         while ($row = mysqli_fetch_assoc($adubos_res2)) {
@@ -97,7 +98,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 }
 
 // Histórico de adubações deste plantio do usuário (usa novo esquema: tipo_manejo)
-$historico_res = mysqli_query($conn, "SELECT cp.*, e.nome_item FROM cuidados_plantio cp LEFT JOIN estoque e ON cp.id_item = e.id_item JOIN plantios p ON cp.id_plantio = p.id_plantio JOIN culturas c ON p.id_cultura = c.id_cultura WHERE cp.id_plantio = $id_plantio AND cp.tipo_manejo = 'Adubação' AND c.id_usuario = $id_usuario ORDER BY cp.data_cuidado DESC LIMIT 10");
+$historico_res = mysqli_query($conn, "SELECT cp.*, e.nome_item FROM cuidados_plantio cp LEFT JOIN estoque e ON cp.id_item = e.id_item JOIN plantios p ON cp.id_plantio = p.id_plantio JOIN culturas c ON p.id_cultura = c.id_cultura WHERE cp.id_plantio = $id_plantio AND cp.tipo_manejo = 'Adubação' AND " . escopo_sql('c.id_usuario') . " ORDER BY cp.data_cuidado DESC LIMIT 10");
 $historico_adubo = [];
 if ($historico_res) {
     while ($row = mysqli_fetch_assoc($historico_res)) {

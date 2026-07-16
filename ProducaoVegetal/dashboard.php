@@ -7,30 +7,30 @@ verificar_login();
 $id_usuario = $_SESSION['user_id'];
 
 // --- Dados para os cards do topo ---
-$q_culturas  = mysqli_query($conn, "SELECT id_cultura FROM culturas WHERE id_usuario = $id_usuario");
+$q_culturas  = mysqli_query($conn, "SELECT id_cultura FROM culturas WHERE " . escopo_sql('id_usuario'));
 $total_culturas = $q_culturas ? mysqli_num_rows($q_culturas) : 0;
 
-$q_plantios  = mysqli_query($conn, "SELECT p.id_plantio FROM plantios p JOIN culturas c ON p.id_cultura = c.id_cultura WHERE p.colhido = 0 AND c.id_usuario = $id_usuario");
+$q_plantios  = mysqli_query($conn, "SELECT p.id_plantio FROM plantios p JOIN culturas c ON p.id_cultura = c.id_cultura WHERE p.colhido = 0 AND " . escopo_sql('c.id_usuario'));
 $total_plantios = $q_plantios ? mysqli_num_rows($q_plantios) : 0;
 
-$q_insumos   = mysqli_query($conn, "SELECT id_item FROM estoque WHERE id_usuario = $id_usuario");
+$q_insumos   = mysqli_query($conn, "SELECT id_item FROM estoque WHERE " . escopo_sql('id_usuario'));
 $total_insumos = $q_insumos ? mysqli_num_rows($q_insumos) : 0;
 
-$q_colheita  = mysqli_query($conn, "SELECT SUM(col.quantidade_colhida) AS total FROM colheitas col JOIN plantios p ON col.id_plantio = p.id_plantio JOIN culturas c ON p.id_cultura = c.id_cultura WHERE c.id_usuario = $id_usuario");
+$q_colheita  = mysqli_query($conn, "SELECT SUM(col.quantidade_colhida) AS total FROM colheitas col JOIN plantios p ON col.id_plantio = p.id_plantio JOIN culturas c ON p.id_cultura = c.id_cultura WHERE " . escopo_sql('c.id_usuario'));
 $total_colhido = 0;
 if ($q_colheita) { $row = mysqli_fetch_assoc($q_colheita); $total_colhido = $row['total'] ?? 0; }
 
 // --- Alertas Críticos: Estoque abaixo do nível mínimo OU a vencer em 30 dias ---
 $alertas = [];
 
-$q_alerta_min = mysqli_query($conn, "SELECT nome_item, quantidade, nivel_alerta, unidade_medida FROM estoque WHERE status_estoque = 'Alerta' AND id_usuario = $id_usuario");
+$q_alerta_min = mysqli_query($conn, "SELECT nome_item, quantidade, nivel_alerta, unidade_medida FROM estoque WHERE status_estoque = 'Alerta' AND " . escopo_sql('id_usuario'));
 if ($q_alerta_min) {
     while ($row = mysqli_fetch_assoc($q_alerta_min)) {
         $alertas[] = ['tipo' => 'estoque', 'msg' => "Estoque crítico: <b>" . htmlspecialchars($row['nome_item']) . "</b> — " . number_format($row['quantidade'],2,',','.') . " " . htmlspecialchars($row['unidade_medida']) . " (mín: {$row['nivel_alerta']})"];
     }
 }
 
-$q_alerta_validade = mysqli_query($conn, "SELECT nome_item, data_validade FROM estoque WHERE data_validade IS NOT NULL AND data_validade <= DATE_ADD(CURDATE(), INTERVAL 30 DAY) AND data_validade >= CURDATE() AND id_usuario = $id_usuario");
+$q_alerta_validade = mysqli_query($conn, "SELECT nome_item, data_validade FROM estoque WHERE data_validade IS NOT NULL AND data_validade <= DATE_ADD(CURDATE(), INTERVAL 30 DAY) AND data_validade >= CURDATE() AND " . escopo_sql('id_usuario'));
 if ($q_alerta_validade) {
     while ($row = mysqli_fetch_assoc($q_alerta_validade)) {
         $data_fmt = date('d/m/Y', strtotime($row['data_validade']));
@@ -41,7 +41,7 @@ if ($q_alerta_validade) {
 // --- Custo total de insumos (Admin only) ---
 $custo_total_insumos = 0;
 if (e_admin()) {
-    $q_custo = mysqli_query($conn, "SELECT SUM(quantidade * custo_aquisicao) AS total FROM estoque WHERE id_usuario = $id_usuario");
+    $q_custo = mysqli_query($conn, "SELECT SUM(quantidade * custo_aquisicao) AS total FROM estoque WHERE " . escopo_sql('id_usuario'));
     if ($q_custo) { $r = mysqli_fetch_assoc($q_custo); $custo_total_insumos = $r['total'] ?? 0; }
 }
 
@@ -67,7 +67,7 @@ $q_stats_plantios = mysqli_query($conn, "
     FROM plantios p
     JOIN culturas c ON p.id_cultura = c.id_cultura
     WHERE p.data_plantio >= DATE_SUB(CURDATE(), INTERVAL 5 MONTH)
-      AND c.id_usuario = $id_usuario
+      AND " . escopo_sql('c.id_usuario') . "
     GROUP BY YEAR(p.data_plantio), MONTH(p.data_plantio)
 ");
 if ($q_stats_plantios) {
@@ -88,7 +88,7 @@ $q_stats_colheitas = mysqli_query($conn, "
     JOIN plantios p ON col.id_plantio = p.id_plantio
     JOIN culturas c ON p.id_cultura = c.id_cultura
     WHERE col.data_colheita >= DATE_SUB(CURDATE(), INTERVAL 5 MONTH)
-      AND c.id_usuario = $id_usuario
+      AND " . escopo_sql('c.id_usuario') . "
     GROUP BY YEAR(col.data_colheita), MONTH(col.data_colheita)
 ");
 if ($q_stats_colheitas) {
@@ -136,7 +136,14 @@ $activePage = 'dashboard';
                     <button class="menu-btn" onclick="toggleMenu()"><i class="fa-solid fa-bars"></i></button>
                     <div class="topbar-title">AgroGestão</div>
                 </div>
-                <div class="user-avatar-top"><?php echo htmlspecialchars($iniciais_top); ?></div>
+                <div class="user-avatar-top" style="<?php echo !empty($_SESSION['user_foto']) ? 'padding:0;overflow:hidden;' : ''; ?>">
+                    <?php if (!empty($_SESSION['user_foto'])): ?>
+                        <img src="<?php echo htmlspecialchars($_SESSION['user_foto']); ?>" alt="Foto"
+                             style="width:100%;height:100%;object-fit:cover;border-radius:50%;">
+                    <?php else: ?>
+                        <?php echo htmlspecialchars($iniciais_top); ?>
+                    <?php endif; ?>
+                </div>
             </header>
 
             <main class="main-content">

@@ -3,6 +3,23 @@ require_once '../Banco/conexao.php';
 require_once 'auth.php';
 verificar_login();
 
+// Endpoint AJAX para carregar insumos e operadores com base no dono do plantio
+if (isset($_GET['ajax_dados_manejo']) && isset($_GET['id_plantio'])) {
+    header('Content-Type: application/json');
+    $id_pl = intval($_GET['id_plantio']);
+    $q_dono = $conn->query("SELECT c.id_usuario FROM plantios p JOIN culturas c ON p.id_cultura=c.id_cultura WHERE p.id_plantio=$id_pl");
+    $dono = $q_dono ? $q_dono->fetch_assoc()['id_usuario'] : null;
+    if (!$dono || (!e_admin() && $dono != $_SESSION['user_id'])) {
+        echo json_encode(['ok'=>false, 'msg'=>'Acesso negado.']);
+        exit;
+    }
+    $insumos = $conn->query("SELECT id_item, nome_item, categoria, unidade_medida, quantidade FROM estoque WHERE quantidade > 0 AND id_usuario = $dono ORDER BY nome_item ASC")->fetch_all(MYSQLI_ASSOC);
+    $ops_sql = e_admin() ? "perfil IN ('admin','operador')" : "perfil = 'operador'";
+    $operadores = $conn->query("SELECT id_usuario, nome, perfil FROM usuarios WHERE $ops_sql ORDER BY nome ASC")->fetch_all(MYSQLI_ASSOC);
+    echo json_encode(['ok'=>true, 'insumos'=>$insumos, 'operadores'=>$operadores]);
+    exit;
+}
+
 $msg_erro   = "";
 $msg_sucesso = "";
 $filtro = isset($_GET['filtro']) ? $_GET['filtro'] : 'Todos';
@@ -24,31 +41,54 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['ajax_manejo'])) {
     if (strlen($data_cuidado) === 16) $data_cuidado .= ':00'; // append seconds if missing
     $id_usuario     = $_SESSION['user_id'];
 
-    // Verificar se o plantio pertence a este usuário
-    $stmt_chk = $conn->prepare("SELECT p.id_plantio FROM plantios p JOIN culturas c ON p.id_cultura = c.id_cultura WHERE p.id_plantio = ? AND c.id_usuario = ?");
-    $stmt_chk->bind_param("ii", $id_plantio, $id_usuario);
+    // Obter o dono do plantio
+    $stmt_chk = $conn->prepare("SELECT c.id_usuario FROM plantios p JOIN culturas c ON p.id_cultura = c.id_cultura WHERE p.id_plantio = ?");
+    $stmt_chk->bind_param("i", $id_plantio);
     $stmt_chk->execute();
-    if ($stmt_chk->get_result()->num_rows === 0) {
+    $chk_res = $stmt_chk->get_result()->fetch_assoc();
+    if (!$chk_res || (!e_admin() && $chk_res['id_usuario'] != $id_usuario)) {
         echo json_encode(['ok'=>false, 'msg'=>'Acesso negado ao plantio.']);
         exit;
     }
+    $id_dono = $chk_res['id_usuario'];
 
-    // Calcular custo da aplicação e realizar baixa automática no estoque
+    // Validar se operador não está escolhendo admin
+    if (!e_admin() && $operador !== '') {
+        $stmt_opchk = $conn->prepare("SELECT perfil FROM usuarios WHERE nome = ? LIMIT 1");
+        $stmt_opchk->bind_param("s", $operador);
+        $stmt_opchk->execute();
+        $op_row = $stmt_opchk->get_result()->fetch_assoc();
+        if ($op_row && $op_row['perfil'] === 'admin') {
+            echo json_encode(['ok' => false, 'msg' => 'Operadores não podem atribuir um administrador como responsável.']);
+            exit;
+        }
+    }
+
+    // Validar e calcular custo do insumo com base na categoria
     $custo_aplic = null;
-    if ($id_item && $qty_usada) {
-        $stmt_i = $conn->prepare("SELECT custo_aquisicao, quantidade, nome_item FROM estoque WHERE id_item = ? AND id_usuario = ?");
-        $stmt_i->bind_param("ii", $id_item, $id_usuario);
-        $stmt_i->execute();
-        $res_i = $stmt_i->get_result()->fetch_assoc();
+    $categoria_esperada = ['Adubacao' => 'Adubo', 'Defensivo' => 'Defensivo'];
+    if ($id_item) {
+        if (!isset($categoria_esperada[$tipo_manejo])) {
+            $id_item = null;
+            $qty_usada = null;
+        } else {
+            $stmt_i = $conn->prepare("SELECT custo_aquisicao, quantidade, nome_item, categoria FROM estoque WHERE id_item = ? AND id_usuario = ?");
+            $stmt_i->bind_param("ii", $id_item, $id_dono);
+            $stmt_i->execute();
+            $res_i = $stmt_i->get_result()->fetch_assoc();
 
-        if ($res_i) {
+            if (!$res_i || $res_i['categoria'] !== $categoria_esperada[$tipo_manejo]) {
+                echo json_encode(['ok' => false, 'msg' => 'Insumo incompatível com o tipo de manejo selecionado.']);
+                exit;
+            }
+
             $custo_aplic = $res_i['custo_aquisicao'] ? $res_i['custo_aquisicao'] * $qty_usada : null;
 
             // Baixa automática no estoque (não permite ficar negativo)
             $nova_qty = max(0, $res_i['quantidade'] - $qty_usada);
             $novo_status = ($nova_qty <= 0) ? 'Alerta' : 'Normal';
             $stmt_upd = $conn->prepare("UPDATE estoque SET quantidade = ?, status_estoque = ? WHERE id_item = ? AND id_usuario = ?");
-            $stmt_upd->bind_param("dsii", $nova_qty, $novo_status, $id_item, $id_usuario);
+            $stmt_upd->bind_param("dsii", $nova_qty, $novo_status, $id_item, $id_dono);
             $stmt_upd->execute();
         }
     }
@@ -60,7 +100,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['ajax_manejo'])) {
     if ($stmt_ins->execute()) {
         // Auto-update irrigado flag se for Irrigacao
         if ($tipo_manejo === 'Irrigacao') {
-            $conn->query("UPDATE plantios p JOIN culturas c ON p.id_cultura = c.id_cultura SET p.irrigado=1, p.dias_irrigados=COALESCE(p.dias_irrigados,0)+1 WHERE p.id_plantio=$id_plantio AND c.id_usuario=$id_usuario");
+            $conn->query("UPDATE plantios p JOIN culturas c ON p.id_cultura = c.id_cultura SET p.irrigado=1, p.dias_irrigados=COALESCE(p.dias_irrigados,0)+1 WHERE p.id_plantio=$id_plantio");
         }
         registrar_log("Manejo registrado: $tipo_manejo (plantio #$id_plantio)");
         echo json_encode(['ok'=>true, 'custo'=>$custo_aplic]);
@@ -122,17 +162,17 @@ if (isset($_GET['action']) && !e_visitante()) {
     
     }
     if ($_GET['action'] === 'irrigar' && $id > 0) {
-        $q = $conn->query("SELECT p.irrigado FROM plantios p JOIN culturas c ON p.id_cultura = c.id_cultura WHERE p.id_plantio=$id AND c.id_usuario = $id_usuario");
+        $q = $conn->query("SELECT p.irrigado FROM plantios p JOIN culturas c ON p.id_cultura = c.id_cultura WHERE p.id_plantio=$id AND " . escopo_sql('c.id_usuario'));
         if ($q && $row = $q->fetch_assoc()) {
             $novo = $row['irrigado'] == 1 ? 0 : 1;
             $inc  = $novo == 1 ? ', p.dias_irrigados = COALESCE(p.dias_irrigados,0)+1' : '';
-            $conn->query("UPDATE plantios p JOIN culturas c ON p.id_cultura = c.id_cultura SET p.irrigado=$novo$inc WHERE p.id_plantio=$id AND c.id_usuario = $id_usuario");
+            $conn->query("UPDATE plantios p JOIN culturas c ON p.id_cultura = c.id_cultura SET p.irrigado=$novo$inc WHERE p.id_plantio=$id AND " . escopo_sql('c.id_usuario'));
         }
         header("Location: plantios_ativos.php?filtro=$filtro"); exit;
     }
 
     if ($_GET['action'] === 'colher' && $id > 0 && isset($_GET['qtd'])) {
-        $q_chk = $conn->query("SELECT p.id_plantio FROM plantios p JOIN culturas c ON p.id_cultura = c.id_cultura WHERE p.id_plantio=$id AND c.id_usuario = $id_usuario");
+        $q_chk = $conn->query("SELECT p.id_plantio FROM plantios p JOIN culturas c ON p.id_cultura = c.id_cultura WHERE p.id_plantio=$id AND " . escopo_sql('c.id_usuario'));
         if ($q_chk && $q_chk->num_rows > 0) {
             preg_match('/[0-9]+(?:\.[0-9]+)?/', $_GET['qtd'], $m);
             $qtd = isset($m[0]) ? floatval($m[0]) : 0;
@@ -155,7 +195,7 @@ $query = "SELECT p.*, c.nome_cultura, c.tempo_medio_crescimento, cat.nome_catego
           FROM plantios p
           JOIN culturas c ON p.id_cultura = c.id_cultura
           JOIN categorias cat ON c.id_categoria = cat.id_categoria
-          WHERE p.colhido = 0 AND c.id_usuario = $id_usuario";
+          WHERE p.colhido = 0 AND " . escopo_sql('c.id_usuario');
 if ($filtro === 'Horta')  $query .= " AND cat.nome_categoria = 'Horta'";
 if ($filtro === 'Pomar')  $query .= " AND cat.nome_categoria = 'Pomar'";
 $query .= " ORDER BY p.id_plantio DESC";
@@ -699,12 +739,10 @@ $activePage = 'plantios';
                                         </button>
 
                                         <!-- Realizar Colheita -->
-                                        <?php if ($progresso >= 90): ?>
-                                            <button class="action-btn btn-colher" style="flex:1;"
-                                                onclick="colherPlantio(<?php echo $p['id_plantio']; ?>, '<?php echo addslashes($p['nome_cultura']); ?>')">
-                                                <i class="fa-solid fa-wheat-awn"></i> Colher
-                                            </button>
-                                        <?php endif; ?>
+                                        <button class="action-btn btn-colher" style="flex:1;"
+                                            onclick="colherPlantio(<?php echo $p['id_plantio']; ?>, '<?php echo addslashes($p['nome_cultura']); ?>', <?php echo $progresso; ?>)">
+                                            <i class="fa-solid fa-wheat-awn"></i> Colher
+                                        </button>
                                     </div>
                                 <?php else: ?>
                                     <div style="font-size:11px;text-align:center;color:var(--text-gray);margin-top:14px;border-top:1px dashed var(--border-color);padding-top:10px;">
@@ -866,12 +904,64 @@ $activePage = 'plantios';
     }
 
     // ── Modal ────────────────────────────────────────────────────────────────
-    function abrirManejo(idPlantio, nomeCultura) {
+    async function abrirManejo(idPlantio, nomeCultura) {
         document.getElementById('m-id-plantio').value = idPlantio;
         document.getElementById('manejo-plantio-info').innerHTML =
-            `<i class="fa-solid fa-seedling"></i> Plantio: <span style="font-weight:900;">${nomeCultura}</span>`;
+            `<i class="fa-solid fa-seedling"></i> Plantio: <span style="font-weight:900;">${nomeCultura}</span> <span style="font-size:11px;font-weight:normal;color:var(--text-gray);">(Carregando...)</span>`;
+        
+        // Limpar os campos e desabilitar o botão de submit temporariamente
+        const submitBtn = document.getElementById('btn-submit-manejo');
+        if (submitBtn) submitBtn.disabled = true;
+
+        const selInsumo = document.getElementById('m-insumo');
+        const selOperador = document.getElementById('m-operador');
+        
+        // Reset inputs
+        if (selInsumo) selInsumo.innerHTML = '<option value="">— Nenhum / Água —</option>';
+        if (selOperador) selOperador.innerHTML = '<option value="">— Selecione o operador —</option>';
+
+        // Mostra o overlay para feedback de carregamento
         document.getElementById('manejo-overlay').classList.add('open');
         document.body.style.overflow = 'hidden';
+
+        try {
+            const res = await fetch(`plantios_ativos.php?ajax_dados_manejo=1&id_plantio=${idPlantio}`);
+            const data = await res.json();
+            
+            if (data.ok) {
+                // Preencher insumos
+                data.insumos.forEach(ins => {
+                    const opt = document.createElement('option');
+                    opt.value = ins.id_item;
+                    opt.dataset.cat = ins.categoria;
+                    opt.dataset.unit = ins.unidade_medida;
+                    const qtyFmt = parseFloat(ins.quantidade).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+                    opt.textContent = `${ins.nome_item} (${qtyFmt} ${ins.unidade_medida} em estoque)`;
+                    if (selInsumo) selInsumo.appendChild(opt);
+                });
+
+                // Preencher operadores
+                data.operadores.forEach(op => {
+                    const opt = document.createElement('option');
+                    opt.value = op.nome;
+                    opt.textContent = `${op.nome} (${op.perfil === 'admin' ? 'Admin' : 'Operador'})`;
+                    if (selOperador) selOperador.appendChild(opt);
+                });
+                
+                if (submitBtn) submitBtn.disabled = false;
+                document.getElementById('manejo-plantio-info').innerHTML =
+                    `<i class="fa-solid fa-seedling"></i> Plantio: <span style="font-weight:900;">${nomeCultura}</span>`;
+            } else {
+                showToast('❌ Erro ao carregar dados do plantio.', true);
+                fecharManejo();
+                return;
+            }
+        } catch(e) {
+            showToast('❌ Erro de conexão ao buscar dados.', true);
+            fecharManejo();
+            return;
+        }
+
         tipoManejoChanged(document.getElementById('m-tipo').value);
     }
 
@@ -886,18 +976,32 @@ $activePage = 'plantios';
         if (e.target === this) fecharManejo();
     });
 
+    const CATEGORIA_POR_MANEJO = { 'Adubacao': 'Adubo', 'Defensivo': 'Defensivo' };
+
     function tipoManejoChanged(val) {
         const insumoGroup = document.getElementById('insumo-group');
         const qtyGroup    = document.getElementById('qty-group');
-        // Show insumo selector for Adubacao and Defensivo
+        const sel         = document.getElementById('m-insumo');
+        const catNecessaria = CATEGORIA_POR_MANEJO[val] || null;
+
+        // Filtra as opções do select conforme o tipo de manejo escolhido
+        Array.from(sel.options).forEach(opt => {
+            if (opt.value === '') { opt.hidden = false; return; } // mantém "Nenhum / Água"
+            opt.hidden = catNecessaria ? (opt.dataset.cat !== catNecessaria) : true;
+        });
+        sel.value = ''; // reseta seleção ao trocar o tipo
+
         if (val === 'Adubacao' || val === 'Defensivo') {
             insumoGroup.style.opacity = '1';
+            insumoGroup.style.pointerEvents = 'auto';
             qtyGroup.style.display = 'block';
         } else if (val === 'Irrigacao') {
             insumoGroup.style.opacity = '.4';
+            insumoGroup.style.pointerEvents = 'none';
             qtyGroup.style.display = 'block';
-        } else {
+        } else { // Outro
             insumoGroup.style.opacity = '.4';
+            insumoGroup.style.pointerEvents = 'none';
             qtyGroup.style.display = 'none';
         }
     }
@@ -931,7 +1035,12 @@ $activePage = 'plantios';
         }
     }
 
-    function colherPlantio(id, nome) {
+    function colherPlantio(id, nome, progresso = 100) {
+        if (progresso < 90) {
+            if (!confirm(`Atenção: Este plantio ainda não atingiu o ciclo ideal de colheita (${progresso}% do ciclo). Deseja realizar uma colheita antecipada?`)) {
+                return;
+            }
+        }
         let qtd = prompt(`Parabéns! Qual a quantidade colhida de ${nome}? (ex: 20 Kg)`);
         if (qtd) {
             window.location.href = `plantios_ativos.php?action=colher&id=${id}&qtd=${encodeURIComponent(qtd)}&filtro=<?php echo $filtro; ?>`;

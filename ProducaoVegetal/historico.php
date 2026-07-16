@@ -10,12 +10,13 @@ $id_usuario = $_SESSION['user_id'];
 $filtro = isset($_GET['filtro']) ? $_GET['filtro'] : 'Todos';
 
 // Query das colheitas
-$query = "SELECT c.*, cult.nome_cultura, cat.nome_categoria 
+$query = "SELECT c.*, cult.nome_cultura, cat.nome_categoria, u.nome AS nome_registrador 
           FROM colheitas c 
           JOIN plantios p ON c.id_plantio = p.id_plantio 
           JOIN culturas cult ON p.id_cultura = cult.id_cultura 
           JOIN categorias cat ON cult.id_categoria = cat.id_categoria
-          WHERE cult.id_usuario = $id_usuario";
+          JOIN usuarios u ON cult.id_usuario = u.id_usuario
+          WHERE " . escopo_sql('cult.id_usuario');
 
 if ($filtro === 'Horta') {
     $query .= " AND cat.nome_categoria = 'Horta'";

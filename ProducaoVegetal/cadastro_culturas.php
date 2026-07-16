@@ -21,7 +21,7 @@ $estacao_inverno = 0;
 
 // Se for edição, busca no banco
 if ($editId) {
-    $query = "SELECT * FROM culturas WHERE id_cultura = $editId";
+    $query = "SELECT * FROM culturas WHERE id_cultura = $editId AND " . escopo_sql('id_usuario');
     $result = mysqli_query($conn, $query);
     if ($result && mysqli_num_rows($result) > 0) {
         $cultura = mysqli_fetch_assoc($result);
@@ -75,7 +75,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 estacao_outono = '$estacao_outono', 
                 estacao_inverno = '$estacao_inverno', 
                 observacoes = '$observacoes' 
-                WHERE id_cultura = $editId";
+                WHERE id_cultura = $editId AND " . escopo_sql('id_usuario');
             if (mysqli_query($conn, $update_query)) {
                 header("Location: culturas_cadastradas.php?msg=editado");
                 exit;

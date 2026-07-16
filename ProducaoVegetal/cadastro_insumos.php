@@ -4,11 +4,7 @@ require_once 'auth.php';
 
 verificar_login();
 
-// Somente Admin pode editar estoque
-if (!e_admin()) {
-    header("Location: estoque.php?erro=restrito");
-    exit;
-}
+// Editado para permitir operadores e administradores (menu principal)
 
 $editId = isset($_GET['editId']) ? intval($_GET['editId']) : null;
 $msg_erro = "";
@@ -21,7 +17,8 @@ $categoria = "Semente";
 $unidade_medida = "Kg";
 
 if ($editId) {
-    $stmt = $conn->prepare("SELECT * FROM estoque WHERE id_item = ?");
+    $sql = "SELECT * FROM estoque WHERE id_item = ? AND " . escopo_sql('id_usuario');
+    $stmt = $conn->prepare($sql);
     $stmt->bind_param("i", $editId);
     $stmt->execute();
     $result = $stmt->get_result();
@@ -56,7 +53,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $msg_erro = "Preencha todos os campos obrigatórios.";
     } else {
         if ($editId) {
-            $stmt = $conn->prepare("UPDATE estoque SET nome_item=?, categoria=?, quantidade=?, unidade_medida=?, nivel_alerta=?, status_estoque=?, data_validade=?, lote_fabricante=?, custo_aquisicao=? WHERE id_item=?");
+            $sql = "UPDATE estoque SET nome_item=?, categoria=?, quantidade=?, unidade_medida=?, nivel_alerta=?, status_estoque=?, data_validade=?, lote_fabricante=?, custo_aquisicao=? WHERE id_item=? AND " . escopo_sql('id_usuario');
+            $stmt = $conn->prepare($sql);
             $stmt->bind_param("ssdsssssdi", $nome_item, $categoria, $quantidade, $unidade_medida, $nivel_alerta, $status_estoque, $data_validade, $lote_fabricante, $custo_aquisicao, $editId);
             if ($stmt->execute()) {
                 header("Location: estoque.php?msg=editado"); exit;

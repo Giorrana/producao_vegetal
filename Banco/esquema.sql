@@ -276,8 +276,7 @@ INSERT IGNORE INTO `categorias` (`id_categoria`, `nome_categoria`) VALUES
 -- Troque as hashes abaixo por novas geradas em produção!
 INSERT IGNORE INTO `usuarios` (`id_usuario`, `nome`, `email`, `senha`, `perfil`) VALUES
 (1, 'Administrador', 'admin@gmail.com',     '$2y$10$/vjckEfvfMQyAf0ZvGyEKeXo1lsB/.p1/pGqZJ/OuazF3.TYY5MiO', 'admin'),
-(2, 'Operador',      'operador@gmail.com',  '$2y$10$/vjckEfvfMQyAf0ZvGyEKeXo1lsB/.p1/pGqZJ/OuazF3.TYY5MiO', 'operador'),
-(3, 'Visitante',     'visitante@gmail.com', '$2y$10$/vjckEfvfMQyAf0ZvGyEKeXo1lsB/.p1/pGqZJ/OuazF3.TYY5MiO', 'visitante');
+(2, 'Operador',      'operador@gmail.com',  '$2y$10$/vjckEfvfMQyAf0ZvGyEKeXo1lsB/.p1/pGqZJ/OuazF3.TYY5MiO', 'operador');
 
 SET FOREIGN_KEY_CHECKS = 1;
 

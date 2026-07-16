@@ -18,11 +18,11 @@ if (isset($_GET['action']) && $_GET['action'] === 'delete' && isset($_GET['id'])
         $id_del = intval($_GET['id']);
         
         // Verificar se a cultura está em uso em algum plantio do usuário
-        $check_plantio = mysqli_query($conn, "SELECT p.id_plantio FROM plantios p JOIN culturas c ON p.id_cultura = c.id_cultura WHERE p.id_cultura = $id_del AND c.id_usuario = $id_usuario");
+        $check_plantio = mysqli_query($conn, "SELECT p.id_plantio FROM plantios p JOIN culturas c ON p.id_cultura = c.id_cultura WHERE p.id_cultura = $id_del AND " . escopo_sql('c.id_usuario'));
         if (mysqli_num_rows($check_plantio) > 0) {
             $msg_erro = "Não é possível excluir esta cultura pois ela já está associada a um plantio ativo.";
         } else {
-            $delete_query = "DELETE FROM culturas WHERE id_cultura = $id_del AND id_usuario = $id_usuario";
+            $delete_query = "DELETE FROM culturas WHERE id_cultura = $id_del AND " . escopo_sql('id_usuario');
             if (mysqli_query($conn, $delete_query)) {
                 registrar_log("Cultura excluída #$id_del");
                 $msg_sucesso = "Cultura excluída com sucesso!";
@@ -37,9 +37,10 @@ if (isset($_GET['action']) && $_GET['action'] === 'delete' && isset($_GET['id'])
 $filtro = isset($_GET['filtro']) ? $_GET['filtro'] : 'Todos';
 
 // Montar a query filtrando por id_usuario
-$query = "SELECT c.*, cat.nome_categoria FROM culturas c 
+$query = "SELECT c.*, cat.nome_categoria, u.nome AS nome_registrador FROM culturas c 
           JOIN categorias cat ON c.id_categoria = cat.id_categoria
-          WHERE c.id_usuario = $id_usuario";
+          JOIN usuarios u ON c.id_usuario = u.id_usuario
+          WHERE " . escopo_sql('c.id_usuario');
 
 if ($filtro === 'Horta') {
     $query .= " AND cat.nome_categoria = 'Horta'";
@@ -159,6 +160,11 @@ $activePage = 'culturas';
                                                 <p style="font-size: 11px; color: var(--text-gray); margin-top: 3px;">
                                                     <i class="fa-regular fa-calendar" style="margin-right: 4px;"></i>
                                                     <?php echo implode(' | ', $estacoes); ?>
+                                                </p>
+                                            <?php endif; ?>
+                                            <?php if (e_admin()): ?>
+                                                <p style="font-size: 11px; color: var(--text-gray); margin-top: 3px;">
+                                                    <i class="fa-solid fa-user"></i> Registrado por: <?php echo htmlspecialchars($cultura['nome_registrador']); ?>
                                                 </p>
                                             <?php endif; ?>
                                         </div>

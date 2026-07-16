@@ -101,7 +101,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 </form>
 
                 <p class="register-link">
-                    Ainda não possui uma conta? <a href="telacadastro.php">Cadastre-se</a>
+                    Não possui uma conta? Fale com o administrador para cadastrar-se.
                 </p>
             </div>
             

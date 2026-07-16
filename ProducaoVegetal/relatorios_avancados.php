@@ -2,7 +2,7 @@
 require_once '../Banco/conexao.php';
 require_once 'auth.php';
 verificar_login();
-restringir_pagina_admin();
+// Relatórios avançados acessíveis a todos (operadores e admins)
 
 $id_usuario = $_SESSION['user_id'];
 
@@ -15,7 +15,7 @@ $q1 = $conn->query("
     FROM culturas c
     LEFT JOIN plantios p   ON p.id_cultura  = c.id_cultura
     LEFT JOIN colheitas col ON col.id_plantio = p.id_plantio
-    WHERE c.id_usuario = $id_usuario
+    WHERE " . escopo_sql('c.id_usuario') . "
     GROUP BY c.id_cultura
     ORDER BY total_kg DESC
     LIMIT 20
@@ -31,7 +31,7 @@ $q2 = $conn->query("
     LEFT JOIN plantios p    ON p.id_cultura   = c.id_cultura
     LEFT JOIN cuidados_plantio cp ON cp.id_plantio = p.id_plantio
     LEFT JOIN colheitas col  ON col.id_plantio = p.id_plantio
-    WHERE c.id_usuario = $id_usuario
+    WHERE " . escopo_sql('c.id_usuario') . "
     GROUP BY c.id_cultura
     HAVING custo_total > 0 OR kg_total > 0
     ORDER BY custo_total DESC
@@ -48,7 +48,7 @@ $q3 = $conn->query("
     FROM cuidados_plantio cp
     JOIN plantios p  ON cp.id_plantio = p.id_plantio
     JOIN culturas c  ON p.id_cultura  = c.id_cultura
-    WHERE c.id_usuario = $id_usuario
+    WHERE " . escopo_sql('c.id_usuario') . "
     GROUP BY cp.tipo_manejo
     ORDER BY total_ops DESC
 ");
@@ -64,7 +64,7 @@ $q4 = $conn->query("
            e.custo_aquisicao
     FROM estoque e
     LEFT JOIN cuidados_plantio cp ON cp.id_item = e.id_item
-    WHERE e.id_usuario = $id_usuario
+    WHERE " . escopo_sql('e.id_usuario') . "
     GROUP BY e.id_item
     ORDER BY total_usado DESC
     LIMIT 25
@@ -82,7 +82,7 @@ $q5 = $conn->query("
     JOIN categorias cat ON c.id_categoria = cat.id_categoria
     LEFT JOIN plantios p   ON p.id_cultura  = c.id_cultura
     LEFT JOIN colheitas col ON col.id_plantio = p.id_plantio
-    WHERE c.id_usuario = $id_usuario
+    WHERE " . escopo_sql('c.id_usuario') . "
     GROUP BY c.id_cultura
     ORDER BY kg_total DESC
     LIMIT 15
