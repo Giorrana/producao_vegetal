@@ -53,13 +53,16 @@ if (isset($_GET['action']) && isset($_GET['id'])) {
 
 // --- Lógica de Criação de Usuário ---
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['acao_form']) && $_POST['acao_form'] === 'criar_usuario') {
-    $nome   = trim($_POST['nome'] ?? '');
-    $email  = trim($_POST['email'] ?? '');
-    $senha  = $_POST['senha'] ?? '';
-    $perfil = ($_POST['perfil'] ?? '') === 'admin' ? 'admin' : 'operador';
+    $nome             = trim($_POST['nome'] ?? '');
+    $email            = trim($_POST['email'] ?? '');
+    $senha            = $_POST['senha'] ?? '';
+    $confirmar_senha  = $_POST['confirmar_senha'] ?? '';
+    $perfil           = ($_POST['perfil'] ?? '') === 'admin' ? 'admin' : 'operador';
 
     if (empty($nome) || empty($email) || strlen($senha) < 6) {
         $msg_erro = "Preencha nome, e-mail e uma senha com pelo menos 6 caracteres.";
+    } elseif ($senha !== $confirmar_senha) {
+        $msg_erro = "A senha e a confirmação de senha não coincidem.";
     } elseif (!filter_var($email, FILTER_VALIDATE_EMAIL)) {
         $msg_erro = "E-mail inválido.";
     } else {
@@ -142,6 +145,125 @@ $activePage = 'admin_usuarios';
         .btn-act-role:hover { border-color: var(--primary-green); color: var(--primary-green); background: var(--active-bg); }
         .btn-act-del { border-color: #fee2e2; color: #ef4444; background: #fee2e220; }
         .btn-act-del:hover { background: #ef4444; color: white; border-color: #ef4444; }
+
+        /* ── Modal ───────────────────────── */
+        .modal-overlay {
+            position: fixed;
+            inset: 0;
+            background: rgba(0,0,0,.55);
+            z-index: 1000;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity .25s;
+        }
+        .modal-overlay.open { opacity: 1; pointer-events: all; }
+        .modal-box {
+            background: var(--card-bg, #fff);
+            border-radius: 20px;
+            width: 100%;
+            max-width: 440px;
+            padding: 28px 24px;
+            box-shadow: 0 20px 60px rgba(0,0,0,.3);
+            transform: translateY(20px);
+            transition: transform .25s;
+            max-height: 90vh;
+            overflow-y: auto;
+        }
+        .modal-overlay.open .modal-box { transform: translateY(0); }
+        .modal-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 20px;
+        }
+        .modal-header h3 {
+            font-size: 17px;
+            font-weight: 800;
+            color: var(--dark-green);
+            margin: 0;
+        }
+        .modal-close {
+            width: 32px;
+            height: 32px;
+            border-radius: 50%;
+            border: none;
+            background: var(--border-color);
+            color: var(--text-gray);
+            cursor: pointer;
+            font-size: 14px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        .modal-field { margin-bottom: 14px; }
+        .modal-field label {
+            display: block;
+            font-size: 12px;
+            font-weight: 700;
+            color: var(--text-gray);
+            text-transform: uppercase;
+            letter-spacing: .5px;
+            margin-bottom: 5px;
+        }
+        .modal-field select, .modal-field input, .modal-field textarea {
+            width: 100%;
+            padding: 10px 12px;
+            border: 1.5px solid var(--border-color);
+            border-radius: 10px;
+            font-size: 14px;
+            background: var(--bg-color, #f9fafb);
+            color: var(--text-main);
+            font-family: inherit;
+            box-sizing: border-box;
+        }
+        .modal-field select:focus, .modal-field input:focus, .modal-field textarea:focus {
+            outline: none;
+            border-color: #22c55e;
+        }
+        .modal-submit {
+            width: 100%;
+            padding: 14px;
+            background: linear-gradient(135deg,#16a34a,#22c55e);
+            color: white;
+            border: none;
+            border-radius: 12px;
+            font-size: 15px;
+            font-weight: 800;
+            cursor: pointer;
+            font-family: inherit;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            margin-top: 6px;
+        }
+        .modal-submit:hover { filter: brightness(1.05); }
+        .modal-submit:disabled { opacity: .6; cursor: not-allowed; }
+
+        /* ── Botão + Verde Redondo ────────── */
+        .btn-novo-usuario {
+            background-color: var(--primary-green);
+            color: white;
+            border: none;
+            border-radius: 50%;
+            width: 44px;
+            height: 44px;
+            font-size: 20px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            box-shadow: 0 4px 10px rgba(97, 187, 104, 0.3);
+            transition: all 0.2s ease;
+        }
+        .btn-novo-usuario:hover {
+            background-color: var(--sidebar-header);
+            transform: scale(1.05);
+        }
     </style>
 </head>
 <body>
@@ -163,7 +285,7 @@ $activePage = 'admin_usuarios';
                         <h1>Gerenciamento de Usuários</h1>
                         <p>Gerencie todos os perfis cadastrados no AgroGestão.</p>
                     </div>
-                    <button class="add-btn" onclick="abrirNovoUsuario()"><i class="fa-solid fa-plus"></i> Novo Usuário</button>
+                    <button class="btn-novo-usuario" onclick="abrirNovoUsuario()" title="Novo Usuário"><i class="fa-solid fa-plus"></i></button>
                 </div>
 
                 <?php if (!empty($msg_erro)): ?>
@@ -263,7 +385,7 @@ $activePage = 'admin_usuarios';
             <input type="hidden" name="acao_form" value="criar_usuario">
             
             <div class="modal-field">
-                <label>Nome completo *</label>
+                <label>Nome *</label>
                 <input type="text" name="nome" required>
             </div>
             
@@ -273,13 +395,17 @@ $activePage = 'admin_usuarios';
             </div>
             
             <div class="modal-field">
-                <label>Senha Provisória *</label>
-                <input type="text" name="senha" minlength="6" required>
-                <small>O usuário poderá alterar a senha nas configurações.</small>
+                <label>Senha *</label>
+                <input type="password" name="senha" minlength="6" required>
+            </div>
+
+            <div class="modal-field">
+                <label>Confirmar senha *</label>
+                <input type="password" name="confirmar_senha" minlength="6" required>
             </div>
             
             <div class="modal-field">
-                <label>Perfil *</label>
+                <label>Tipo de usuário *</label>
                 <select name="perfil" required>
                     <option value="operador">Operador</option>
                     <option value="admin">Administrador</option>
@@ -287,7 +413,7 @@ $activePage = 'admin_usuarios';
             </div>
 
             <button type="submit" class="modal-submit">
-                <i class="fa-solid fa-floppy-disk"></i> Criar Usuário
+                <i class="fa-solid fa-user-plus"></i> Criar Usuário
             </button>
         </form>
     </div>

@@ -17,12 +17,15 @@ if (isset($_GET['action']) && $_GET['action'] === 'delete' && isset($_GET['id'])
     } else {
         $id_del = intval($_GET['id']);
         
-        // Verificar se a cultura está em uso em algum plantio do usuário
-        $check_plantio = mysqli_query($conn, "SELECT p.id_plantio FROM plantios p JOIN culturas c ON p.id_cultura = c.id_cultura WHERE p.id_cultura = $id_del AND " . escopo_sql('c.id_usuario'));
+        // Verificar se a cultura está em uso em algum plantio do usuário (ou de qualquer usuário se for admin)
+        $cond_check = e_admin() ? "1=1" : "c.id_usuario = $id_usuario";
+        $check_plantio = mysqli_query($conn, "SELECT p.id_plantio FROM plantios p JOIN culturas c ON p.id_cultura = c.id_cultura WHERE p.id_cultura = $id_del AND $cond_check");
         if (mysqli_num_rows($check_plantio) > 0) {
             $msg_erro = "Não é possível excluir esta cultura pois ela já está associada a um plantio ativo.";
         } else {
-            $delete_query = "DELETE FROM culturas WHERE id_cultura = $id_del AND " . escopo_sql('id_usuario');
+            $delete_query = e_admin()
+                ? "DELETE FROM culturas WHERE id_cultura = $id_del"
+                : "DELETE FROM culturas WHERE id_cultura = $id_del AND id_usuario = $id_usuario";
             if (mysqli_query($conn, $delete_query)) {
                 registrar_log("Cultura excluída #$id_del");
                 $msg_sucesso = "Cultura excluída com sucesso!";
@@ -36,11 +39,11 @@ if (isset($_GET['action']) && $_GET['action'] === 'delete' && isset($_GET['id'])
 // Filtro de categoria
 $filtro = isset($_GET['filtro']) ? $_GET['filtro'] : 'Todos';
 
-// Montar a query filtrando por id_usuario
+// Montar a query (qualquer usuário logado pode ver todas as culturas)
 $query = "SELECT c.*, cat.nome_categoria, u.nome AS nome_registrador FROM culturas c 
           JOIN categorias cat ON c.id_categoria = cat.id_categoria
           JOIN usuarios u ON c.id_usuario = u.id_usuario
-          WHERE " . escopo_sql('c.id_usuario');
+          WHERE 1=1";
 
 if ($filtro === 'Horta') {
     $query .= " AND cat.nome_categoria = 'Horta'";
@@ -162,11 +165,9 @@ $activePage = 'culturas';
                                                     <?php echo implode(' | ', $estacoes); ?>
                                                 </p>
                                             <?php endif; ?>
-                                            <?php if (e_admin()): ?>
-                                                <p style="font-size: 11px; color: var(--text-gray); margin-top: 3px;">
-                                                    <i class="fa-solid fa-user"></i> Registrado por: <?php echo htmlspecialchars($cultura['nome_registrador']); ?>
-                                                </p>
-                                            <?php endif; ?>
+                                            <p style="font-size: 11px; color: var(--text-gray); margin-top: 3px;">
+                                                <i class="fa-solid fa-user"></i> Registrado por: <?php echo htmlspecialchars($cultura['nome_registrador']); ?>
+                                            </p>
                                         </div>
                                     </div>
                                     
@@ -179,7 +180,7 @@ $activePage = 'culturas';
                                                 <i class="fa-solid fa-comment-dots"></i>
                                             </button>
                                         <?php endif; ?>
-                                        <?php if (!e_visitante()): ?>
+                                        <?php if (!e_visitante() && (e_admin() || $cultura['id_usuario'] == $id_usuario)): ?>
                                             <a href="cadastro_culturas.php?editId=<?php echo $cultura['id_cultura']; ?>" class="btn-action btn-edit">
                                                 <i class="fa-solid fa-pen-to-square"></i>
                                             </a>

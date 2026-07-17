@@ -7,13 +7,13 @@ verificar_login();
 if (isset($_GET['ajax_dados_manejo']) && isset($_GET['id_plantio'])) {
     header('Content-Type: application/json');
     $id_pl = intval($_GET['id_plantio']);
-    $q_dono = $conn->query("SELECT c.id_usuario FROM plantios p JOIN culturas c ON p.id_cultura=c.id_cultura WHERE p.id_plantio=$id_pl");
+    $q_dono = $conn->query("SELECT p.id_usuario FROM plantios p WHERE p.id_plantio=$id_pl");
     $dono = $q_dono ? $q_dono->fetch_assoc()['id_usuario'] : null;
-    if (!$dono || (!e_admin() && $dono != $_SESSION['user_id'])) {
+    if (!$dono || (!e_admin()  && $dono != $_SESSION['user_id'])) {
         echo json_encode(['ok'=>false, 'msg'=>'Acesso negado.']);
         exit;
     }
-    $insumos = $conn->query("SELECT id_item, nome_item, categoria, unidade_medida, quantidade FROM estoque WHERE quantidade > 0 AND id_usuario = $dono ORDER BY nome_item ASC")->fetch_all(MYSQLI_ASSOC);
+    $insumos = $conn->query("SELECT id_item, nome_item, categoria, unidade_medida, quantidade FROM estoque WHERE quantidade > 0 ORDER BY nome_item ASC")->fetch_all(MYSQLI_ASSOC);
     $ops_sql = e_admin() ? "perfil IN ('admin','operador')" : "perfil = 'operador'";
     $operadores = $conn->query("SELECT id_usuario, nome, perfil FROM usuarios WHERE $ops_sql ORDER BY nome ASC")->fetch_all(MYSQLI_ASSOC);
     echo json_encode(['ok'=>true, 'insumos'=>$insumos, 'operadores'=>$operadores]);
@@ -42,7 +42,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['ajax_manejo'])) {
     $id_usuario     = $_SESSION['user_id'];
 
     // Obter o dono do plantio
-    $stmt_chk = $conn->prepare("SELECT c.id_usuario FROM plantios p JOIN culturas c ON p.id_cultura = c.id_cultura WHERE p.id_plantio = ?");
+    $stmt_chk = $conn->prepare("SELECT p.id_usuario FROM plantios p WHERE p.id_plantio = ?");
     $stmt_chk->bind_param("i", $id_plantio);
     $stmt_chk->execute();
     $chk_res = $stmt_chk->get_result()->fetch_assoc();
@@ -72,8 +72,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['ajax_manejo'])) {
             $id_item = null;
             $qty_usada = null;
         } else {
-            $stmt_i = $conn->prepare("SELECT custo_aquisicao, quantidade, nome_item, categoria FROM estoque WHERE id_item = ? AND id_usuario = ?");
-            $stmt_i->bind_param("ii", $id_item, $id_dono);
+            $stmt_i = $conn->prepare("SELECT custo_aquisicao, quantidade, nome_item, categoria FROM estoque WHERE id_item = ?");
+            $stmt_i->bind_param("i", $id_item);
             $stmt_i->execute();
             $res_i = $stmt_i->get_result()->fetch_assoc();
 
@@ -87,8 +87,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['ajax_manejo'])) {
             // Baixa automática no estoque (não permite ficar negativo)
             $nova_qty = max(0, $res_i['quantidade'] - $qty_usada);
             $novo_status = ($nova_qty <= 0) ? 'Alerta' : 'Normal';
-            $stmt_upd = $conn->prepare("UPDATE estoque SET quantidade = ?, status_estoque = ? WHERE id_item = ? AND id_usuario = ?");
-            $stmt_upd->bind_param("dsii", $nova_qty, $novo_status, $id_item, $id_dono);
+            $stmt_upd = $conn->prepare("UPDATE estoque SET quantidade = ?, status_estoque = ? WHERE id_item = ?");
+            $stmt_upd->bind_param("dsi", $nova_qty, $novo_status, $id_item);
             $stmt_upd->execute();
         }
     }
@@ -115,14 +115,14 @@ if (isset($_GET['action']) && !e_visitante()) {
     $id = intval($_GET['id'] ?? 0);
     $id_usuario = $_SESSION['user_id'];
     if ($_GET['action'] === 'delete' && $id > 0) {
-        // Verifica se o plantio pertence ao usuário
-        $stmt = $conn->prepare("
-            SELECT p.id_plantio
-            FROM plantios p
-            JOIN culturas c ON p.id_cultura = c.id_cultura
-            WHERE p.id_plantio = ? AND c.id_usuario = ?
-        ");
-        $stmt->bind_param("ii", $id, $id_usuario);
+        // Verifica se o plantio pertence ao usuário (ou se é admin)
+        if (e_admin()) {
+            $stmt = $conn->prepare("SELECT p.id_plantio FROM plantios p WHERE p.id_plantio = ?");
+            $stmt->bind_param("i", $id);
+        } else {
+            $stmt = $conn->prepare("SELECT p.id_plantio FROM plantios p WHERE p.id_plantio = ? AND p.id_usuario = ?");
+            $stmt->bind_param("ii", $id, $id_usuario);
+        }
         $stmt->execute();
         if ($stmt->get_result()->num_rows > 0) {
             mysqli_begin_transaction($conn);
@@ -162,17 +162,19 @@ if (isset($_GET['action']) && !e_visitante()) {
     
     }
     if ($_GET['action'] === 'irrigar' && $id > 0) {
-        $q = $conn->query("SELECT p.irrigado FROM plantios p JOIN culturas c ON p.id_cultura = c.id_cultura WHERE p.id_plantio=$id AND " . escopo_sql('c.id_usuario'));
+        $check_cond = e_admin() ? "1=1" : "p.id_usuario = $id_usuario";
+        $q = $conn->query("SELECT p.irrigado FROM plantios p WHERE p.id_plantio=$id AND $check_cond");
         if ($q && $row = $q->fetch_assoc()) {
             $novo = $row['irrigado'] == 1 ? 0 : 1;
             $inc  = $novo == 1 ? ', p.dias_irrigados = COALESCE(p.dias_irrigados,0)+1' : '';
-            $conn->query("UPDATE plantios p JOIN culturas c ON p.id_cultura = c.id_cultura SET p.irrigado=$novo$inc WHERE p.id_plantio=$id AND " . escopo_sql('c.id_usuario'));
+            $conn->query("UPDATE plantios p SET p.irrigado=$novo$inc WHERE p.id_plantio=$id AND $check_cond");
         }
         header("Location: plantios_ativos.php?filtro=$filtro"); exit;
     }
 
     if ($_GET['action'] === 'colher' && $id > 0 && isset($_GET['qtd'])) {
-        $q_chk = $conn->query("SELECT p.id_plantio FROM plantios p JOIN culturas c ON p.id_cultura = c.id_cultura WHERE p.id_plantio=$id AND " . escopo_sql('c.id_usuario'));
+        $check_cond = e_admin() ? "1=1" : "p.id_usuario = $id_usuario";
+        $q_chk = $conn->query("SELECT p.id_plantio FROM plantios p WHERE p.id_plantio=$id AND $check_cond");
         if ($q_chk && $q_chk->num_rows > 0) {
             preg_match('/[0-9]+(?:\.[0-9]+)?/', $_GET['qtd'], $m);
             $qtd = isset($m[0]) ? floatval($m[0]) : 0;
@@ -195,7 +197,7 @@ $query = "SELECT p.*, c.nome_cultura, c.tempo_medio_crescimento, cat.nome_catego
           FROM plantios p
           JOIN culturas c ON p.id_cultura = c.id_cultura
           JOIN categorias cat ON c.id_categoria = cat.id_categoria
-          WHERE p.colhido = 0 AND " . escopo_sql('c.id_usuario');
+          WHERE p.colhido = 0";
 if ($filtro === 'Horta')  $query .= " AND cat.nome_categoria = 'Horta'";
 if ($filtro === 'Pomar')  $query .= " AND cat.nome_categoria = 'Pomar'";
 $query .= " ORDER BY p.id_plantio DESC";
@@ -235,7 +237,7 @@ if ($result) {
 
 // ─── BUSCAR INSUMOS PARA MODAL ──────────────────────────────────────────────
 $insumos_modal = [];
-$res_ins = $conn->query("SELECT id_item, nome_item, categoria, unidade_medida, quantidade FROM estoque WHERE quantidade > 0 AND id_usuario = $id_usuario ORDER BY nome_item ASC");
+$res_ins = $conn->query("SELECT id_item, nome_item, categoria, unidade_medida, quantidade FROM estoque WHERE quantidade > 0 ORDER BY nome_item ASC");
 if ($res_ins) $insumos_modal = $res_ins->fetch_all(MYSQLI_ASSOC);
 
 // ─── BUSCAR OPERADORES E ADMINS PARA MODAL ──────────────────────────────────
@@ -697,7 +699,7 @@ $activePage = 'plantios';
                                         <?php if ($p['custo_total'] > 0): ?>
                                             <div class="custo-badge"><i class="fa-solid fa-circle-dollar-to-slot"></i> R$ <?php echo number_format($p['custo_total'],2,',','.'); ?></div>
                                         <?php endif; ?>
-                                        <?php if (!e_visitante()): ?>
+                                        <?php if (!e_visitante() && (e_admin() || $p['id_usuario'] == $id_usuario)): ?>
                                         <a href="plantios_ativos.php?action=delete&id=<?php echo $p['id_plantio']; ?>&filtro=<?php echo urlencode($filtro); ?>"
                                             class="btn-action btn-delete"
                                             title="Excluir plantio"
@@ -731,18 +733,24 @@ $activePage = 'plantios';
 
                                 <!-- Actions -->
                                 <?php if (!e_visitante()): ?>
-                                    <div style="display:flex;gap:8px;margin-top:14px;flex-wrap:wrap;">
-                                        <!-- Registrar Manejo -->
-                                        <button class="btn-manejo" style="flex:2;"
-                                            onclick="abrirManejo(<?php echo $p['id_plantio']; ?>, '<?php echo addslashes(htmlspecialchars($p['nome_cultura'])); ?>')">
-                                            <i class="fa-solid fa-clipboard-list"></i> Registrar Manejo
-                                        </button>
+                                    <div style="display:flex;gap:8px;margin-top:14px;flex-wrap:wrap;width:100%;">
+                                        <?php if (e_admin() || $p['id_usuario'] == $id_usuario): ?>
+                                            <!-- Registrar Manejo -->
+                                            <button class="btn-manejo" style="flex:2;"
+                                                onclick="abrirManejo(<?php echo $p['id_plantio']; ?>, '<?php echo addslashes(htmlspecialchars($p['nome_cultura'])); ?>')">
+                                                <i class="fa-solid fa-clipboard-list"></i> Registrar Manejo
+                                            </button>
 
-                                        <!-- Realizar Colheita -->
-                                        <button class="action-btn btn-colher" style="flex:1;"
-                                            onclick="colherPlantio(<?php echo $p['id_plantio']; ?>, '<?php echo addslashes($p['nome_cultura']); ?>', <?php echo $progresso; ?>)">
-                                            <i class="fa-solid fa-wheat-awn"></i> Colher
-                                        </button>
+                                            <!-- Realizar Colheita -->
+                                            <button class="action-btn btn-colher" style="flex:1;"
+                                                onclick="colherPlantio(<?php echo $p['id_plantio']; ?>, '<?php echo addslashes($p['nome_cultura']); ?>', <?php echo $progresso; ?>)">
+                                                <i class="fa-solid fa-wheat-awn"></i> Colher
+                                            </button>
+                                        <?php else: ?>
+                                            <div style="font-size:11px;text-align:center;color:var(--text-gray);width:100%;border-top:1px dashed var(--border-color);padding-top:10px;">
+                                                <i class="fa-solid fa-lock"></i> Somente leitura (plantado por outro usuário)
+                                            </div>
+                                        <?php endif; ?>
                                     </div>
                                 <?php else: ?>
                                     <div style="font-size:11px;text-align:center;color:var(--text-gray);margin-top:14px;border-top:1px dashed var(--border-color);padding-top:10px;">

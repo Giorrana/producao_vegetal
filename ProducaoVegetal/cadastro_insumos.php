@@ -17,7 +17,7 @@ $categoria = "Semente";
 $unidade_medida = "Kg";
 
 if ($editId) {
-    $sql = "SELECT * FROM estoque WHERE id_item = ? AND " . escopo_sql('id_usuario');
+    $sql = "SELECT * FROM estoque WHERE id_item = ?";
     $stmt = $conn->prepare($sql);
     $stmt->bind_param("i", $editId);
     $stmt->execute();
@@ -53,7 +53,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $msg_erro = "Preencha todos os campos obrigatórios.";
     } else {
         if ($editId) {
-            $sql = "UPDATE estoque SET nome_item=?, categoria=?, quantidade=?, unidade_medida=?, nivel_alerta=?, status_estoque=?, data_validade=?, lote_fabricante=?, custo_aquisicao=? WHERE id_item=? AND " . escopo_sql('id_usuario');
+            $sql = "UPDATE estoque SET nome_item=?, categoria=?, quantidade=?, unidade_medida=?, nivel_alerta=?, status_estoque=?, data_validade=?, lote_fabricante=?, custo_aquisicao=? WHERE id_item=?";
             $stmt = $conn->prepare($sql);
             $stmt->bind_param("ssdsssssdi", $nome_item, $categoria, $quantidade, $unidade_medida, $nivel_alerta, $status_estoque, $data_validade, $lote_fabricante, $custo_aquisicao, $editId);
             if ($stmt->execute()) {

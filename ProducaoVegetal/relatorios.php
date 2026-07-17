@@ -22,7 +22,7 @@ $max_mensal = max(max($mensal), 10);
 $custo_insumos  = 0;
 $custo_manejo   = 0;
 if (e_admin()) {
-    $qci = $conn->query("SELECT SUM(quantidade * custo_aquisicao) AS t FROM estoque WHERE " . escopo_sql('id_usuario')); if ($qci) $custo_insumos  = $qci->fetch_assoc()['t'] ?? 0;
+    $qci = $conn->query("SELECT SUM(quantidade * custo_aquisicao) AS t FROM estoque WHERE 1=1"); if ($qci) $custo_insumos  = $qci->fetch_assoc()['t'] ?? 0;
     $qcm = $conn->query("SELECT SUM(cp.custo_calculado) AS t FROM cuidados_plantio cp JOIN plantios p ON cp.id_plantio = p.id_plantio JOIN culturas cult ON p.id_cultura = cult.id_cultura WHERE " . escopo_sql('cult.id_usuario'));     if ($qcm) $custo_manejo   = $qcm->fetch_assoc()['t'] ?? 0;
 }
 
@@ -334,7 +334,7 @@ $activePage = 'relatorios';
 
                     <!-- Alertas de validade -->
                     <?php
-                    $q_val = $conn->query("SELECT nome_item, data_validade, categoria FROM estoque WHERE data_validade IS NOT NULL AND data_validade <= DATE_ADD(CURDATE(), INTERVAL 60 DAY) AND " . escopo_sql('id_usuario') . " ORDER BY data_validade ASC LIMIT 10");
+                    $q_val = $conn->query("SELECT nome_item, data_validade, categoria FROM estoque WHERE data_validade IS NOT NULL AND data_validade <= DATE_ADD(CURDATE(), INTERVAL 60 DAY) ORDER BY data_validade ASC LIMIT 10");
                     $validades = $q_val ? $q_val->fetch_all(MYSQLI_ASSOC) : [];
                     ?>
                     <div class="report-card" style="margin-top:16px;">

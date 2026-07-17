@@ -19,7 +19,7 @@ if (isset($_GET['action'])) {
         $id = isset($_GET['id']) ? intval($_GET['id']) : 0;
         
         if ($_GET['action'] === 'delete' && $id > 0) {
-            $delete_query = "DELETE FROM estoque WHERE id_item = $id AND " . escopo_sql('id_usuario');
+            $delete_query = "DELETE FROM estoque WHERE id_item = $id";
             if (mysqli_query($conn, $delete_query)) {
                 $msg_sucesso = "Insumo removido com sucesso!";
             } else {
@@ -31,7 +31,7 @@ if (isset($_GET['action'])) {
             $val = floatval($_GET['val']);
             
             // Buscar quantidade atual
-            $q = mysqli_query($conn, "SELECT quantidade, nivel_alerta FROM estoque WHERE id_item = $id AND " . escopo_sql('id_usuario'));
+            $q = mysqli_query($conn, "SELECT quantidade, nivel_alerta FROM estoque WHERE id_item = $id");
             if ($q && mysqli_fetch_assoc($q)) {
                 mysqli_data_seek($q, 0);
                 $item = mysqli_fetch_assoc($q);
@@ -39,7 +39,7 @@ if (isset($_GET['action'])) {
                 
                 if ($new_qty >= 0) {
                     $status_estoque = ($new_qty <= $item['nivel_alerta']) ? 'Alerta' : 'Normal';
-                    $update_query = "UPDATE estoque SET quantidade = $new_qty, status_estoque = '$status_estoque' WHERE id_item = $id AND " . escopo_sql('id_usuario');
+                    $update_query = "UPDATE estoque SET quantidade = $new_qty, status_estoque = '$status_estoque' WHERE id_item = $id";
                     if (mysqli_query($conn, $update_query)) {
                         header("Location: estoque.php?filtro=$filtro");
                         exit;
@@ -56,7 +56,7 @@ if (isset($_GET['action'])) {
 }
 
 // Buscar itens do estoque
-$query = "SELECT e.*, u.nome AS nome_registrador FROM estoque e JOIN usuarios u ON e.id_usuario = u.id_usuario WHERE " . escopo_sql('e.id_usuario');
+$query = "SELECT e.*, u.nome AS nome_registrador FROM estoque e JOIN usuarios u ON e.id_usuario = u.id_usuario WHERE 1=1";
 if ($filtro === 'Semente') {
     $query .= " AND categoria = 'Semente'";
 } elseif ($filtro === 'Adubo') {

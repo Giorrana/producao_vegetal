@@ -55,12 +55,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
             // Inserir com prepared statement
             $stmt = $conn->prepare(
-                "INSERT INTO plantios (id_cultura, data_plantio, local_canteiro, quantidade_plantada, progresso_colheita, notas_plantio, irrigado, colhido, codigo_lote, tamanho_area, unidade_area)
-                 VALUES (?, ?, ?, ?, '0', ?, 0, 0, ?, ?, ?)"
+                "INSERT INTO plantios (id_cultura, data_plantio, local_canteiro, quantidade_plantada, progresso_colheita, notas_plantio, irrigado, colhido, codigo_lote, tamanho_area, unidade_area, id_usuario)
+                 VALUES (?, ?, ?, ?, '0', ?, 0, 0, ?, ?, ?, ?)"
             );
-            $stmt->bind_param("issiisds",
+            $stmt->bind_param("issiisdsi",
                 $id_cultura, $data_plantio, $local_canteiro, $quantidade_plantada,
-                $notas_plantio, $codigo_lote, $tamanho_area, $unidade_area
+                $notas_plantio, $codigo_lote, $tamanho_area, $unidade_area, $id_usuario
             );
 
             if ($stmt->execute()) {

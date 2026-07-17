@@ -157,10 +157,14 @@ CREATE TABLE IF NOT EXISTS `plantios` (
   `codigo_lote`        VARCHAR(50)  DEFAULT NULL,
   `tamanho_area`       DECIMAL(10,2) DEFAULT 0.00,
   `dias_irrigados`     INT(11)      DEFAULT 0,
+  `id_usuario`         INT(11)      DEFAULT NULL,
   PRIMARY KEY (`id_plantio`),
   KEY `id_cultura` (`id_cultura`),
+  KEY `id_usuario` (`id_usuario`),
   CONSTRAINT `plantios_ibfk_1`
-    FOREIGN KEY (`id_cultura`) REFERENCES `culturas` (`id_cultura`)
+    FOREIGN KEY (`id_cultura`) REFERENCES `culturas` (`id_cultura`),
+  CONSTRAINT `plantios_ibfk_2`
+    FOREIGN KEY (`id_usuario`) REFERENCES `usuarios` (`id_usuario`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
 -- ─────────────────────────────────────────────────────────────

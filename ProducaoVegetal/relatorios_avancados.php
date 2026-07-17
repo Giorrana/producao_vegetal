@@ -64,7 +64,7 @@ $q4 = $conn->query("
            e.custo_aquisicao
     FROM estoque e
     LEFT JOIN cuidados_plantio cp ON cp.id_item = e.id_item
-    WHERE " . escopo_sql('e.id_usuario') . "
+    WHERE 1=1
     GROUP BY e.id_item
     ORDER BY total_usado DESC
     LIMIT 25
