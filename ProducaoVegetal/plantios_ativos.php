@@ -21,6 +21,9 @@ if (isset($_GET['ajax_dados_manejo']) && isset($_GET['id_plantio'])) {
 }
 
 $msg_erro   = "";
+if (isset($_GET['erro_colheita'])) {
+    $msg_erro = $_GET['erro_colheita'];
+}
 $msg_sucesso = "";
 $filtro = isset($_GET['filtro']) ? $_GET['filtro'] : 'Todos';
 
@@ -174,11 +177,33 @@ if (isset($_GET['action']) && !e_visitante()) {
 
     if ($_GET['action'] === 'colher' && $id > 0 && isset($_GET['qtd'])) {
         $check_cond = e_admin() ? "1=1" : "p.id_usuario = $id_usuario";
-        $q_chk = $conn->query("SELECT p.id_plantio FROM plantios p WHERE p.id_plantio=$id AND $check_cond");
+        $q_chk = $conn->query("
+            SELECT p.id_plantio, p.quantidade_plantada, c.rendimento_esperado 
+            FROM plantios p 
+            JOIN culturas c ON p.id_cultura = c.id_cultura 
+            WHERE p.id_plantio = $id AND $check_cond
+        ");
         if ($q_chk && $q_chk->num_rows > 0) {
+            $row_plantio = $q_chk->fetch_assoc();
+            $qty_plantada = floatval($row_plantio['quantidade_plantada']);
+            $rendimento = floatval($row_plantio['rendimento_esperado']);
+            
             preg_match('/[0-9]+(?:\.[0-9]+)?/', $_GET['qtd'], $m);
             $qtd = isset($m[0]) ? floatval($m[0]) : 0;
             if ($qtd > 0) {
+                if ($rendimento > 0) {
+                    $q_colhido = $conn->query("SELECT SUM(quantidade_colhida) AS total FROM colheitas WHERE id_plantio = $id");
+                    $colhido_row = $q_colhido ? $q_colhido->fetch_assoc() : null;
+                    $total_colhido = $colhido_row ? floatval($colhido_row['total']) : 0;
+                    
+                    $limite_kg = $qty_plantada * $rendimento * 1.30;
+                    if (($total_colhido + $qtd) > $limite_kg) {
+                        $limite_fmt = number_format($limite_kg, 2, ',', '.');
+                        $total_fmt = number_format($total_colhido + $qtd, 2, ',', '.');
+                        header("Location: plantios_ativos.php?erro_colheita=" . urlencode("A quantidade informada excede o limite máximo estimado para este plantio. Limite máximo: $limite_fmt Kg. Tentativa: $total_fmt Kg (incluindo colheitas anteriores)."));
+                        exit;
+                    }
+                }
                 mysqli_begin_transaction($conn);
                 $s1 = $conn->prepare("INSERT INTO colheitas (data_colheita, quantidade_colhida, id_plantio) VALUES (CURRENT_DATE(), ?, ?)");
                 $s1->bind_param("di", $qtd, $id);

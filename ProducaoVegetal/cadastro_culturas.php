@@ -11,6 +11,7 @@ $msg_sucesso = "";
 
 $nome_cultura = "";
 $tempo_medio_crescimento = "";
+$rendimento_esperado = "";
 $observacoes = "";
 $id_categoria = 1; // Default Horta
 
@@ -27,6 +28,7 @@ if ($editId) {
         $cultura = mysqli_fetch_assoc($result);
         $nome_cultura = $cultura['nome_cultura'];
         $tempo_medio_crescimento = $cultura['tempo_medio_crescimento'];
+        $rendimento_esperado = $cultura['rendimento_esperado'];
         $observacoes = $cultura['observacoes'];
         $id_categoria = $cultura['id_categoria'];
         
@@ -47,6 +49,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $nome_cultura = mysqli_real_escape_string($conn, $_POST['nome_cultura']);
         $id_categoria = intval($_POST['id_categoria']);
         $tempo_medio_crescimento = mysqli_real_escape_string($conn, $_POST['tempo_medio_crescimento']);
+        $rendimento_esperado = floatval($_POST['rendimento_esperado']);
         
         $estacao_primavera = isset($_POST['estacao_primavera']) ? 'Primavera' : '';
         $estacao_verao    = isset($_POST['estacao_verao'])    ? 'Verão'    : '';
@@ -69,6 +72,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 nome_cultura = '$nome_cultura', 
                 id_categoria = $id_categoria, 
                 tempo_medio_crescimento = '$tempo_medio_crescimento', 
+                rendimento_esperado = $rendimento_esperado, 
                 estacao_ano_ideal = '$estacao_ano_ideal', 
                 estacao_primavera = '$estacao_primavera', 
                 estacao_verao = '$estacao_verao', 
@@ -84,9 +88,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             }
         } else {
             $insert_query = "INSERT INTO culturas 
-                (nome_cultura, id_categoria, tempo_medio_crescimento, estacao_ano_ideal, estacao_primavera, estacao_verao, estacao_outono, estacao_inverno, observacoes, id_usuario) 
+                (nome_cultura, id_categoria, tempo_medio_crescimento, rendimento_esperado, estacao_ano_ideal, estacao_primavera, estacao_verao, estacao_outono, estacao_inverno, observacoes, id_usuario) 
                 VALUES 
-                ('$nome_cultura', $id_categoria, '$tempo_medio_crescimento', '$estacao_ano_ideal', '$estacao_primavera', '$estacao_verao', '$estacao_outono', '$estacao_inverno', '$observacoes', $id_usuario_atual)";
+                ('$nome_cultura', $id_categoria, '$tempo_medio_crescimento', $rendimento_esperado, '$estacao_ano_ideal', '$estacao_primavera', '$estacao_verao', '$estacao_outono', '$estacao_inverno', '$observacoes', $id_usuario_atual)";
             if (mysqli_query($conn, $insert_query)) {
                 header("Location: culturas_cadastradas.php?msg=criado");
                 exit;
@@ -164,6 +168,11 @@ $activePage = 'culturas';
                     <div class="field-card">
                         <label>Ciclo Estimado (Dias até Colheita)</label>
                         <input name="tempo_medio_crescimento" type="number" class="form-input" placeholder="Ex: 90" required value="<?php echo htmlspecialchars($tempo_medio_crescimento); ?>" <?php echo e_visitante() ? 'disabled' : ''; ?>>
+                    </div>
+                
+                    <div class="field-card">
+                        <label>Rendimento Esperado (Kg por unidade plantada) *</label>
+                        <input name="rendimento_esperado" type="number" step="0.01" min="0" class="form-input" placeholder="Ex: 2.50" required value="<?php echo htmlspecialchars($rendimento_esperado); ?>" <?php echo e_visitante() ? 'disabled' : ''; ?>>
                     </div>
                 
                     <!-- 4 OPÇÕES DE CHECKBOX PARA ESTAÇÃO RECOMENDADA -->
