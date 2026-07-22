@@ -46,7 +46,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
             $_SESSION['user_email'] = $novo_email;
             echo json_encode(['ok'=>true,'nome'=>$novo_nome,'email'=>$novo_email]);
         } else {
-            echo json_encode(['ok'=>false,'msg'=>'Erro ao salvar: '.$stmt->error]);
+            echo json_encode(['ok'=>false,'msg'=>tratar_erro_sql("atualizar perfil", $stmt->error)]);
         }
         exit;
     }
@@ -142,7 +142,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
             $_SESSION['user_foto'] = $nova_foto;
             echo json_encode(['ok'=>true,'foto'=>$nova_foto]);
         } else {
-            echo json_encode(['ok'=>false,'msg'=>'Erro ao salvar foto: '.$stmt_photo->error]);
+            echo json_encode(['ok'=>false,'msg'=>tratar_erro_sql("salvar foto", $stmt_photo->error)]);
         }
         exit;
     }

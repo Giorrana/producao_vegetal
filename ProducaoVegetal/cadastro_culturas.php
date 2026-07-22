@@ -22,10 +22,12 @@ $estacao_inverno = 0;
 
 // Se for edição, busca no banco
 if ($editId) {
-    $query = "SELECT * FROM culturas WHERE id_cultura = $editId AND " . escopo_sql('id_usuario');
-    $result = mysqli_query($conn, $query);
-    if ($result && mysqli_num_rows($result) > 0) {
-        $cultura = mysqli_fetch_assoc($result);
+    $stmt_c = $conn->prepare("SELECT * FROM culturas WHERE id_cultura = ? AND " . escopo_sql('id_usuario'));
+    $stmt_c->bind_param("i", $editId);
+    $stmt_c->execute();
+    $result = $stmt_c->get_result();
+    if ($result && $result->num_rows > 0) {
+        $cultura = $result->fetch_assoc();
         $nome_cultura = $cultura['nome_cultura'];
         $tempo_medio_crescimento = $cultura['tempo_medio_crescimento'];
         $rendimento_esperado = $cultura['rendimento_esperado'];
@@ -46,10 +48,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     if (e_visitante()) {
         $msg_erro = "Acesso negado! Visitantes não podem adicionar ou editar culturas.";
     } else {
-        $nome_cultura = mysqli_real_escape_string($conn, $_POST['nome_cultura']);
-        $id_categoria = intval($_POST['id_categoria']);
-        $tempo_medio_crescimento = mysqli_real_escape_string($conn, $_POST['tempo_medio_crescimento']);
-        $rendimento_esperado = floatval($_POST['rendimento_esperado']);
+        $nome_cultura = trim($_POST['nome_cultura'] ?? '');
+        $id_categoria = intval($_POST['id_categoria'] ?? 0);
+        $tempo_medio_crescimento = trim($_POST['tempo_medio_crescimento'] ?? '');
+        $rendimento_esperado = floatval($_POST['rendimento_esperado'] ?? 0);
         
         $estacao_primavera = isset($_POST['estacao_primavera']) ? 'Primavera' : '';
         $estacao_verao    = isset($_POST['estacao_verao'])    ? 'Verão'    : '';
@@ -64,38 +66,40 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         if (!empty($estacao_inverno))  $estacoes_ativas[] = "Inverno";
         $estacao_ano_ideal = implode('/', $estacoes_ativas);
 
-        $observacoes = mysqli_real_escape_string($conn, $_POST['observacoes']);
+        $observacoes = trim($_POST['observacoes'] ?? '');
         $id_usuario_atual = $_SESSION['user_id'];
 
         if ($editId) {
-            $update_query = "UPDATE culturas SET 
-                nome_cultura = '$nome_cultura', 
-                id_categoria = $id_categoria, 
-                tempo_medio_crescimento = '$tempo_medio_crescimento', 
-                rendimento_esperado = $rendimento_esperado, 
-                estacao_ano_ideal = '$estacao_ano_ideal', 
-                estacao_primavera = '$estacao_primavera', 
-                estacao_verao = '$estacao_verao', 
-                estacao_outono = '$estacao_outono', 
-                estacao_inverno = '$estacao_inverno', 
-                observacoes = '$observacoes' 
-                WHERE id_cultura = $editId AND " . escopo_sql('id_usuario');
-            if (mysqli_query($conn, $update_query)) {
+            $check_cond = e_admin() ? "1=1" : "id_usuario = " . intval($id_usuario_atual);
+            $stmt_upd = $conn->prepare("UPDATE culturas SET 
+                nome_cultura = ?, 
+                id_categoria = ?, 
+                tempo_medio_crescimento = ?, 
+                rendimento_esperado = ?, 
+                estacao_ano_ideal = ?, 
+                estacao_primavera = ?, 
+                estacao_verao = ?, 
+                estacao_outono = ?, 
+                estacao_inverno = ?, 
+                observacoes = ? 
+                WHERE id_cultura = ? AND ($check_cond)");
+            $stmt_upd->bind_param("sissssssssi", $nome_cultura, $id_categoria, $tempo_medio_crescimento, $rendimento_esperado, $estacao_ano_ideal, $estacao_primavera, $estacao_verao, $estacao_outono, $estacao_inverno, $observacoes, $editId);
+            if ($stmt_upd->execute()) {
                 header("Location: culturas_cadastradas.php?msg=editado");
                 exit;
             } else {
-                $msg_erro = "Erro ao atualizar cultura: " . mysqli_error($conn);
+                $msg_erro = tratar_erro_sql("atualizar cultura", $stmt_upd->error);
             }
         } else {
-            $insert_query = "INSERT INTO culturas 
+            $stmt_ins = $conn->prepare("INSERT INTO culturas 
                 (nome_cultura, id_categoria, tempo_medio_crescimento, rendimento_esperado, estacao_ano_ideal, estacao_primavera, estacao_verao, estacao_outono, estacao_inverno, observacoes, id_usuario) 
-                VALUES 
-                ('$nome_cultura', $id_categoria, '$tempo_medio_crescimento', $rendimento_esperado, '$estacao_ano_ideal', '$estacao_primavera', '$estacao_verao', '$estacao_outono', '$estacao_inverno', '$observacoes', $id_usuario_atual)";
-            if (mysqli_query($conn, $insert_query)) {
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)");
+            $stmt_ins->bind_param("sissssssssi", $nome_cultura, $id_categoria, $tempo_medio_crescimento, $rendimento_esperado, $estacao_ano_ideal, $estacao_primavera, $estacao_verao, $estacao_outono, $estacao_inverno, $observacoes, $id_usuario_atual);
+            if ($stmt_ins->execute()) {
                 header("Location: culturas_cadastradas.php?msg=criado");
                 exit;
             } else {
-                $msg_erro = "Erro ao cadastrar cultura: " . mysqli_error($conn);
+                $msg_erro = tratar_erro_sql("cadastrar cultura", $stmt_ins->error);
             }
         }
     }

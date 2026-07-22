@@ -19,38 +19,46 @@ if (isset($_GET['action'])) {
         $id = isset($_GET['id']) ? intval($_GET['id']) : 0;
         
         if ($_GET['action'] === 'delete' && $id > 0) {
-            $delete_query = "DELETE FROM estoque WHERE id_item = $id";
-            if (mysqli_query($conn, $delete_query)) {
-                $msg_sucesso = "Insumo removido com sucesso!";
+            $check_cond = e_admin() ? "1=1" : "id_usuario = " . intval($_SESSION['user_id']);
+            $stmt_del = $conn->prepare("DELETE FROM estoque WHERE id_item = ? AND ($check_cond)");
+            $stmt_del->bind_param("i", $id);
+            if ($stmt_del->execute()) {
+                if ($stmt_del->affected_rows > 0) {
+                    $msg_sucesso = "Insumo removido com sucesso!";
+                } else {
+                    $msg_erro = "Insumo não encontrado ou sem permissão para excluí-lo.";
+                }
             } else {
-                $msg_erro = "Erro ao remover insumo: " . mysqli_error($conn);
+                $msg_erro = tratar_erro_sql("remover insumo", $stmt_del->error);
             }
         }
         
         if ($_GET['action'] === 'adjust_qty' && $id > 0 && isset($_GET['val'])) {
             $val = floatval($_GET['val']);
-            
-            // Buscar quantidade atual
-            $q = mysqli_query($conn, "SELECT quantidade, nivel_alerta FROM estoque WHERE id_item = $id");
-            if ($q && mysqli_fetch_assoc($q)) {
-                mysqli_data_seek($q, 0);
-                $item = mysqli_fetch_assoc($q);
+            $check_cond = e_admin() ? "1=1" : "id_usuario = " . intval($_SESSION['user_id']);
+            $stmt_sel = $conn->prepare("SELECT quantidade, nivel_alerta FROM estoque WHERE id_item = ? AND ($check_cond)");
+            $stmt_sel->bind_param("i", $id);
+            $stmt_sel->execute();
+            $res_sel = $stmt_sel->get_result();
+            if ($res_sel && $item = $res_sel->fetch_assoc()) {
                 $new_qty = $item['quantidade'] + $val;
                 
                 if ($new_qty >= 0) {
                     $status_estoque = ($new_qty <= $item['nivel_alerta']) ? 'Alerta' : 'Normal';
-                    $update_query = "UPDATE estoque SET quantidade = $new_qty, status_estoque = '$status_estoque' WHERE id_item = $id";
-                    if (mysqli_query($conn, $update_query)) {
+                    $stmt_upd = $conn->prepare("UPDATE estoque SET quantidade = ?, status_estoque = ? WHERE id_item = ?");
+                    $stmt_upd->bind_param("dsi", $new_qty, $status_estoque, $id);
+                    if ($stmt_upd->execute()) {
                         header("Location: estoque.php?filtro=$filtro");
                         exit;
                     } else {
-                        $msg_erro = "Erro ao atualizar quantidade: " . mysqli_error($conn);
+                        $msg_erro = tratar_erro_sql("atualizar quantidade", $stmt_upd->error);
                     }
                 } else {
                     $msg_erro = "A quantidade não pode ser menor que zero!";
                 }
+            } else {
+                $msg_erro = "Insumo não encontrado ou sem permissão para alterá-lo.";
             }
-            
         }
     }
 }
@@ -203,11 +211,9 @@ $activePage = 'estoque';
                                             <?php endif; ?>
                                         </div>
                                     </div>
-                                    
                                     <div class="item-right">
-                                        <!-- Controles Rápidos de Quantidade (Apenas Admin) -->
-                                        <?php if (!e_visitante()): ?>                                        
-                                            <!-- Ações de Editar e Excluir -->
+                                        <!-- Ações de Editar e Excluir: admin vê tudo, operador só vê os seus -->
+                                        <?php if (!e_visitante() && (e_admin() || $item['id_usuario'] == $id_usuario)): ?>
                                             <div class="action-btns">
                                                 <a href="cadastro_insumos.php?editId=<?php echo $item['id_item']; ?>" class="btn-action btn-edit">
                                                     <i class="fa-solid fa-pen-to-square"></i>
@@ -218,7 +224,7 @@ $activePage = 'estoque';
                                                     <i class="fa-solid fa-trash-can"></i>
                                                 </a>
                                             </div>
-                                        <?php endif;?>
+                                        <?php endif; ?>
                                     </div>
                                 </div>
                             <?php endforeach; ?>

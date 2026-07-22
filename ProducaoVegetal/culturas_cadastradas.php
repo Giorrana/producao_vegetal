@@ -20,7 +20,7 @@ if (isset($_GET['action']) && $_GET['action'] === 'delete' && isset($_GET['id'])
         // Verificar se a cultura está em uso em algum plantio do usuário (ou de qualquer usuário se for admin)
         $cond_check = e_admin() ? "1=1" : "c.id_usuario = $id_usuario";
         $check_plantio = mysqli_query($conn, "SELECT p.id_plantio FROM plantios p JOIN culturas c ON p.id_cultura = c.id_cultura WHERE p.id_cultura = $id_del AND $cond_check");
-        if (mysqli_num_rows($check_plantio) > 0) {
+        if ($check_plantio && mysqli_num_rows($check_plantio) > 0) {
             $msg_erro = "Não é possível excluir esta cultura pois ela já está associada a um plantio ativo.";
         } else {
             $delete_query = e_admin()
@@ -30,7 +30,7 @@ if (isset($_GET['action']) && $_GET['action'] === 'delete' && isset($_GET['id'])
                 registrar_log("Cultura excluída #$id_del");
                 $msg_sucesso = "Cultura excluída com sucesso!";
             } else {
-                $msg_erro = "Erro ao excluir cultura: " . mysqli_error($conn);
+                $msg_erro = tratar_erro_sql("excluir cultura", mysqli_error($conn));
             }
         }
     }

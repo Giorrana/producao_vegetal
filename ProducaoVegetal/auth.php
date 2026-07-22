@@ -83,4 +83,12 @@ function registrar_log(string $operacao): void {
         $stmt->execute();
     }
 }
+
+// Trata erros de SQL registrando o erro técnico no log do servidor e retornando mensagem genérica e amigável
+function tratar_erro_sql(string $contexto, string $erro_tecnico = ''): string {
+    if (!empty($erro_tecnico)) {
+        error_log("Erro SQL [$contexto]: " . $erro_tecnico);
+    }
+    return "Ocorreu um erro ao processar sua solicitação ($contexto). Se o problema persistir, contate o suporte.";
+}
 ?>

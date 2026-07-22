@@ -67,7 +67,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 header("Location: plantios_ativos.php?msg=criado");
                 exit;
             } else {
-                $msg_erro = "Erro ao registrar plantio: " . $stmt->error;
+                $msg_erro = tratar_erro_sql("registrar plantio", $stmt->error);
             }
         }
     }

@@ -11,31 +11,41 @@ if (isset($_SESSION['user_id'])) {
 $erro = "";
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-    $email = mysqli_real_escape_string($conn, $_POST['email']);
-    $senha = $_POST['senha'];
+    $email = trim($_POST['email'] ?? '');
+    $senha = $_POST['senha'] ?? '';
 
-    $query = "SELECT * FROM usuarios WHERE email = '$email'";
-    $result = mysqli_query($conn, $query);
-
-    if ($result && mysqli_num_rows($result) > 0) {
-        $usuario_db = mysqli_fetch_assoc($result);
-        
-        // Verificar senha (suporta password_hash)
-        if (password_verify($senha, $usuario_db['senha'])) {
-            $_SESSION['user_id']     = $usuario_db['id_usuario'];
-            $_SESSION['user_nome']   = $usuario_db['nome'];
-            $_SESSION['user_email']  = $usuario_db['email'];
-            $_SESSION['user_perfil'] = $usuario_db['perfil'];
-            $_SESSION['user_foto']   = $usuario_db['foto_perfil'] ?? '';
-            registrar_log('Login realizado');
-            
-            header("Location: dashboard.php");
-            exit;
-        } else {
-            $erro = "E-mail ou senha incorretos!";
-        }
+    if (empty($email) || empty($senha)) {
+        $erro = "Por favor, preencha todos os campos!";
     } else {
-        $erro = "E-mail ou senha incorretos!";
+        $stmt = $conn->prepare("SELECT * FROM usuarios WHERE email = ?");
+        if ($stmt) {
+            $stmt->bind_param("s", $email);
+            $stmt->execute();
+            $result = $stmt->get_result();
+
+            if ($result && $result->num_rows > 0) {
+                $usuario_db = $result->fetch_assoc();
+                
+                // Verificar senha (suporta password_hash)
+                if (password_verify($senha, $usuario_db['senha'])) {
+                    $_SESSION['user_id']     = $usuario_db['id_usuario'];
+                    $_SESSION['user_nome']   = $usuario_db['nome'];
+                    $_SESSION['user_email']  = $usuario_db['email'];
+                    $_SESSION['user_perfil'] = $usuario_db['perfil'];
+                    $_SESSION['user_foto']   = $usuario_db['foto_perfil'] ?? '';
+                    registrar_log('Login realizado');
+                    
+                    header("Location: dashboard.php");
+                    exit;
+                } else {
+                    $erro = "E-mail ou senha incorretos!";
+                }
+            } else {
+                $erro = "E-mail ou senha incorretos!";
+            }
+        } else {
+            $erro = tratar_erro_sql("login", $conn->error);
+        }
     }
 }
 ?>

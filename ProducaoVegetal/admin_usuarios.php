@@ -23,7 +23,7 @@ if (isset($_GET['action']) && isset($_GET['id'])) {
         $msg_erro = "Você não pode alterar seu próprio perfil ou se remover.";
     } else {
         if ($action === 'delete') {
-            // Remover logs associados por segurança
+            // Remover logs(logins) associados por segurança
             $conn->query("DELETE FROM log WHERE id_usuario = $id_target");
             
             // Remover usuário

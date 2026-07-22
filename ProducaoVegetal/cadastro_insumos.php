@@ -17,7 +17,9 @@ $categoria = "Semente";
 $unidade_medida = "Kg";
 
 if ($editId) {
-    $sql = "SELECT * FROM estoque WHERE id_item = ?";
+    // Admin pode editar qualquer item; operador só pode editar os seus
+    $check_dono = e_admin() ? "1=1" : "id_usuario = " . intval($_SESSION['user_id']);
+    $sql = "SELECT * FROM estoque WHERE id_item = ? AND ($check_dono)";
     $stmt = $conn->prepare($sql);
     $stmt->bind_param("i", $editId);
     $stmt->execute();
@@ -33,7 +35,9 @@ if ($editId) {
         $lote_fabricante= $item['lote_fabricante'] ?? '';
         $custo_aquisicao= $item['custo_aquisicao'] ?? '';
     } else {
-        $editId = null;
+        // ID inválido ou sem permissão
+        header("Location: estoque.php?erro=sem_permissao");
+        exit;
     }
 }
 
@@ -53,18 +57,23 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $msg_erro = "Preencha todos os campos obrigatórios.";
     } else {
         if ($editId) {
-            $sql = "UPDATE estoque SET nome_item=?, categoria=?, quantidade=?, unidade_medida=?, nivel_alerta=?, status_estoque=?, data_validade=?, lote_fabricante=?, custo_aquisicao=? WHERE id_item=?";
+            $check_dono = e_admin() ? "1=1" : "id_usuario = " . intval($_SESSION['user_id']);
+            $sql = "UPDATE estoque SET nome_item=?, categoria=?, quantidade=?, unidade_medida=?, nivel_alerta=?, status_estoque=?, data_validade=?, lote_fabricante=?, custo_aquisicao=? WHERE id_item=? AND ($check_dono)";
             $stmt = $conn->prepare($sql);
             $stmt->bind_param("ssdsssssdi", $nome_item, $categoria, $quantidade, $unidade_medida, $nivel_alerta, $status_estoque, $data_validade, $lote_fabricante, $custo_aquisicao, $editId);
             if ($stmt->execute()) {
-                header("Location: estoque.php?msg=editado"); exit;
-            } else { $msg_erro = "Erro ao atualizar: " . $stmt->error; }
+                if ($stmt->affected_rows >= 0) {
+                    header("Location: estoque.php?msg=editado"); exit;
+                } else {
+                    $msg_erro = "Sem permissão para editar este insumo.";
+                }
+            } else { $msg_erro = tratar_erro_sql("atualizar insumo", $stmt->error); }
         } else {
             $stmt = $conn->prepare("INSERT INTO estoque (nome_item, categoria, quantidade, unidade_medida, nivel_alerta, status_estoque, id_usuario, data_validade, lote_fabricante, custo_aquisicao) VALUES (?,?,?,?,?,?,?,?,?,?)");
             $stmt->bind_param("ssdsssissd", $nome_item, $categoria, $quantidade, $unidade_medida, $nivel_alerta, $status_estoque, $id_usuario, $data_validade, $lote_fabricante, $custo_aquisicao);
             if ($stmt->execute()) {
                 header("Location: estoque.php?msg=criado"); exit;
-            } else { $msg_erro = "Erro ao inserir: " . $stmt->error; }
+            } else { $msg_erro = tratar_erro_sql("cadastrar insumo", $stmt->error); }
         }
     }
 }

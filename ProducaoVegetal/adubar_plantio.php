@@ -92,7 +92,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     }
                 } else {
                     mysqli_rollback($conn);
-                    $msg_erro = "Erro ao registrar adubação: " . mysqli_error($conn);
+                    $msg_erro = tratar_erro_sql("registrar adubação", mysqli_error($conn));
                 }
             }
         }

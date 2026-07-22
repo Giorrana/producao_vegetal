@@ -5,13 +5,21 @@ verificar_login();
 restringir_pagina_admin();
 
 // ─── KPIs Globais (todos os tenants) ────────────────────────────────────────
+function safe_count($conn, $sql) {
+    $res = $conn->query($sql);
+    if ($res && $row = $res->fetch_assoc()) {
+        return $row['c'] ?? 0;
+    }
+    return 0;
+}
+
 $kpi = [];
-$kpi['usuarios']  = $conn->query("SELECT COUNT(*) c FROM usuarios")->fetch_assoc()['c'] ?? 0;
-$kpi['plantios']  = $conn->query("SELECT COUNT(*) c FROM plantios WHERE colhido=0")->fetch_assoc()['c'] ?? 0;
-$kpi['culturas']  = $conn->query("SELECT COUNT(*) c FROM culturas")->fetch_assoc()['c'] ?? 0;
-$kpi['colheitas'] = $conn->query("SELECT COUNT(*) c FROM colheitas")->fetch_assoc()['c'] ?? 0;
-$kpi['manejos']   = $conn->query("SELECT COUNT(*) c FROM cuidados_plantio")->fetch_assoc()['c'] ?? 0;
-$kpi['kg_total']  = $conn->query("SELECT COALESCE(SUM(quantidade_colhida),0) c FROM colheitas")->fetch_assoc()['c'] ?? 0;
+$kpi['usuarios']  = safe_count($conn, "SELECT COUNT(*) c FROM usuarios");
+$kpi['plantios']  = safe_count($conn, "SELECT COUNT(*) c FROM plantios WHERE colhido=0");
+$kpi['culturas']  = safe_count($conn, "SELECT COUNT(*) c FROM culturas");
+$kpi['colheitas'] = safe_count($conn, "SELECT COUNT(*) c FROM colheitas");
+$kpi['manejos']   = safe_count($conn, "SELECT COUNT(*) c FROM cuidados_plantio");
+$kpi['kg_total']  = safe_count($conn, "SELECT COALESCE(SUM(quantidade_colhida),0) c FROM colheitas");
 
 // ─── Atividade por Usuário ───────────────────────────────────────────────────
 $q_users = $conn->query("
