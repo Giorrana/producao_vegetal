@@ -75,13 +75,18 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['ajax_manejo'])) {
             $id_item = null;
             $qty_usada = null;
         } else {
-            $stmt_i = $conn->prepare("SELECT custo_aquisicao, quantidade, nome_item, categoria FROM estoque WHERE id_item = ?");
+            $stmt_i = $conn->prepare("SELECT custo_aquisicao, quantidade, nome_item, categoria, data_validade FROM estoque WHERE id_item = ?");
             $stmt_i->bind_param("i", $id_item);
             $stmt_i->execute();
             $res_i = $stmt_i->get_result()->fetch_assoc();
 
             if (!$res_i || $res_i['categoria'] !== $categoria_esperada[$tipo_manejo]) {
                 echo json_encode(['ok' => false, 'msg' => 'Insumo incompatível com o tipo de manejo selecionado.']);
+                exit;
+            }
+
+            if (!empty($res_i['data_validade']) && strtotime($res_i['data_validade']) < strtotime('today')) {
+                echo json_encode(['ok' => false, 'msg' => 'Este insumo está vencido e não pode ser utilizado.']);
                 exit;
             }
 
@@ -178,13 +183,22 @@ if (isset($_GET['action']) && !e_visitante()) {
     if ($_GET['action'] === 'colher' && $id > 0 && isset($_GET['qtd'])) {
         $check_cond = e_admin() ? "1=1" : "p.id_usuario = $id_usuario";
         $q_chk = $conn->query("
-            SELECT p.id_plantio, p.quantidade_plantada, c.rendimento_esperado 
+            SELECT p.id_plantio, p.quantidade_plantada, p.data_plantio, c.rendimento_esperado, c.tempo_medio_crescimento 
             FROM plantios p 
             JOIN culturas c ON p.id_cultura = c.id_cultura 
             WHERE p.id_plantio = $id AND $check_cond
         ");
         if ($q_chk && $q_chk->num_rows > 0) {
             $row_plantio = $q_chk->fetch_assoc();
+            $dias_ciclo = intval($row_plantio['tempo_medio_crescimento']) ?: 90;
+            $dap = (int) floor((time() - strtotime($row_plantio['data_plantio'])) / 86400);
+            $dap = max(0, $dap);
+            $progresso_calc = min(100, round(($dap / $dias_ciclo) * 100));
+
+            if ($progresso_calc < 60) {
+                header("Location: plantios_ativos.php?erro_colheita=" . urlencode("A colheita só é permitida a partir da fase de Floração (mínimo 60% do ciclo)."));
+                exit;
+            }
             $qty_plantada = floatval($row_plantio['quantidade_plantada']);
             $rendimento = floatval($row_plantio['rendimento_esperado']);
             
@@ -262,7 +276,7 @@ if ($result) {
 
 // ─── BUSCAR INSUMOS PARA MODAL ──────────────────────────────────────────────
 $insumos_modal = [];
-$res_ins = $conn->query("SELECT id_item, nome_item, categoria, unidade_medida, quantidade FROM estoque WHERE quantidade > 0 ORDER BY nome_item ASC");
+$res_ins = $conn->query("SELECT id_item, nome_item, categoria, unidade_medida, quantidade, data_validade FROM estoque WHERE quantidade > 0 ORDER BY nome_item ASC");
 if ($res_ins) $insumos_modal = $res_ins->fetch_all(MYSQLI_ASSOC);
 
 // ─── BUSCAR OPERADORES E ADMINS PARA MODAL ──────────────────────────────────
@@ -767,10 +781,16 @@ $activePage = 'plantios';
                                             </button>
 
                                             <!-- Realizar Colheita -->
-                                            <button class="action-btn btn-colher" style="flex:1;"
-                                                onclick="colherPlantio(<?php echo $p['id_plantio']; ?>, '<?php echo addslashes($p['nome_cultura']); ?>', <?php echo $progresso; ?>)">
-                                                <i class="fa-solid fa-wheat-awn"></i> Colher
-                                            </button>
+                                            <?php if ($progresso >= 60): ?>
+                                                <button class="action-btn btn-colher" style="flex:1;"
+                                                    onclick="colherPlantio(<?php echo $p['id_plantio']; ?>, '<?php echo addslashes($p['nome_cultura']); ?>')">
+                                                    <i class="fa-solid fa-wheat-awn"></i> Colher
+                                                </button>
+                                            <?php else: ?>
+                                                <button class="action-btn btn-colher" style="flex:1; opacity:0.5; cursor:not-allowed;" disabled title="Disponível a partir da Floração (60%)">
+                                                    <i class="fa-solid fa-wheat-awn"></i> Colher (60%)
+                                                </button>
+                                            <?php endif; ?>
                                         <?php else: ?>
                                             <div style="font-size:11px;text-align:center;color:var(--text-gray);width:100%;border-top:1px dashed var(--border-color);padding-top:10px;">
                                                 <i class="fa-solid fa-lock"></i> Somente leitura (plantado por outro usuário)
@@ -870,11 +890,14 @@ $activePage = 'plantios';
                 <label>Insumo Utilizado</label>
                 <select name="id_item" id="m-insumo">
                     <option value="">— Nenhum / Água —</option>
-                    <?php foreach ($insumos_modal as $ins): ?>
+                    <?php foreach ($insumos_modal as $ins): 
+                        $vencido = !empty($ins['data_validade']) && strtotime($ins['data_validade']) < strtotime('today');
+                    ?>
                         <option value="<?php echo $ins['id_item']; ?>"
                             data-cat="<?php echo htmlspecialchars($ins['categoria']); ?>"
-                            data-unit="<?php echo htmlspecialchars($ins['unidade_medida']); ?>">
-                            <?php echo htmlspecialchars($ins['nome_item']); ?> (<?php echo number_format($ins['quantidade'],2,',','.'); ?> <?php echo htmlspecialchars($ins['unidade_medida']); ?> em estoque)
+                            data-unit="<?php echo htmlspecialchars($ins['unidade_medida']); ?>"
+                            <?php echo $vencido ? 'disabled' : ''; ?>>
+                            <?php echo htmlspecialchars($ins['nome_item']); ?> (<?php echo number_format($ins['quantidade'],2,',','.'); ?> <?php echo htmlspecialchars($ins['unidade_medida']); ?> em estoque)<?php echo $vencido ? ' (Vencido)' : ''; ?>
                         </option>
                     <?php endforeach; ?>
                 </select>
@@ -1068,12 +1091,7 @@ $activePage = 'plantios';
         }
     }
 
-    function colherPlantio(id, nome, progresso = 100) {
-        if (progresso < 90) {
-            if (!confirm(`Atenção: Este plantio ainda não atingiu o ciclo ideal de colheita (${progresso}% do ciclo). Deseja realizar uma colheita antecipada?`)) {
-                return;
-            }
-        }
+    function colherPlantio(id, nome) {
         let qtd = prompt(`Parabéns! Qual a quantidade colhida de ${nome}? (ex: 20 Kg)`);
         if (qtd) {
             window.location.href = `plantios_ativos.php?action=colher&id=${id}&qtd=${encodeURIComponent(qtd)}&filtro=<?php echo $filtro; ?>`;

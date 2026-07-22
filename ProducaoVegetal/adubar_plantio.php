@@ -54,11 +54,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $msg_erro = "Informe uma quantidade válida maior que zero.";
         } else {
             // Verificar estoque disponível do dono do plantio
-            $estoque_res = mysqli_query($conn, "SELECT quantidade, unidade_medida, nome_item, nivel_alerta, custo_aquisicao FROM estoque WHERE id_item = $id_adubo AND id_usuario = $id_dono");
+            $estoque_res = mysqli_query($conn, "SELECT quantidade, unidade_medida, nome_item, nivel_alerta, custo_aquisicao, data_validade FROM estoque WHERE id_item = $id_adubo AND id_usuario = $id_dono");
             $item_estoque = mysqli_fetch_assoc($estoque_res);
 
             if (!$item_estoque) {
                 $msg_erro = "Adubo não encontrado no estoque.";
+            } elseif (!empty($item_estoque['data_validade']) && strtotime($item_estoque['data_validade']) < strtotime('today')) {
+                $msg_erro = "Este insumo está vencido e não pode ser utilizado.";
             } elseif ($item_estoque['quantidade'] < $quantidade) {
                 $msg_erro = "Quantidade insuficiente no estoque! Disponível: " . number_format($item_estoque['quantidade'], 2, ',', '.') . " " . $item_estoque['unidade_medida'];
             } else {
@@ -210,11 +212,14 @@ $activePage = 'plantios'; // Mantém plantios ativo no menu
                                     <?php else: ?>
                                         <select name="id_adubo" class="form-select" required>
                                             <option value="">— Selecione o adubo —</option>
-                                            <?php foreach ($adubos as $ad): ?>
-                                                <option value="<?php echo $ad['id_item']; ?>">
+                                            <?php foreach ($adubos as $ad): 
+                                                $vencido = !empty($ad['data_validade']) && strtotime($ad['data_validade']) < strtotime('today');
+                                            ?>
+                                                <option value="<?php echo $ad['id_item']; ?>" <?php echo $vencido ? 'disabled' : ''; ?>>
                                                     <?php echo htmlspecialchars($ad['nome_item']); ?> 
                                                     (<?php echo number_format($ad['quantidade'], 2, ',', '.'); ?> <?php echo htmlspecialchars($ad['unidade_medida']); ?> disponíveis)
                                                     <?php echo $ad['status_estoque'] === 'Alerta' ? '⚠️' : ''; ?>
+                                                    <?php echo $vencido ? ' (Vencido)' : ''; ?>
                                                 </option>
                                             <?php endforeach; ?>
                                         </select>

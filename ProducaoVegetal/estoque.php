@@ -167,9 +167,11 @@ $activePage = 'estoque';
                                 elseif ($item['categoria'] === 'Adubo') $icon = '🪨';
                                 elseif ($item['categoria'] === 'Defensivo') $icon = '🧪';
 
-                                // Alerta de nível mínimo
+                                $vencido = !empty($item['data_validade']) && strtotime($item['data_validade']) < strtotime('today');
+
+                                // Alerta de nível mínimo ou vencimento
                                 $style_card = "";
-                                if ($item['status_estoque'] === 'Alerta') {
+                                if ($item['status_estoque'] === 'Alerta' || $vencido) {
                                     $style_card = "border-left: 4px solid var(--red); background-color: #fffafb;";
                                 }
                             ?>
@@ -177,11 +179,26 @@ $activePage = 'estoque';
                                     <div class="item-left">
                                         <div class="item-icon-box"><?php echo $icon; ?></div>
                                         <div class="item-info">
-                                            <h4><?php echo htmlspecialchars($item['nome_item']); ?></h4>
+                                            <h4>
+                                                <?php echo htmlspecialchars($item['nome_item']); ?>
+                                                <?php if ($vencido): ?>
+                                                    <span style="background-color: var(--red); color: white; font-size: 10px; font-weight: 700; padding: 2px 6px; border-radius: 4px; margin-left: 6px; display: inline-block; vertical-align: middle;">
+                                                        <i class="fa-solid fa-triangle-exclamation"></i> Vencido
+                                                    </span>
+                                                <?php endif; ?>
+                                            </h4>
                                             <p><?php echo htmlspecialchars($item['categoria']); ?> • <?php echo htmlspecialchars(number_format($item['quantidade'], 2, ',', '.')); ?> <?php echo htmlspecialchars($item['unidade_medida']); ?></p>
+                                            <p style="font-size: 11px; color: var(--text-gray); margin-top: 2px;">
+                                                <i class="fa-solid fa-user" style="font-size: 10px;"></i> Registrado por: <?php echo htmlspecialchars($item['nome_registrador']); ?>
+                                            </p>
                                             <?php if ($item['status_estoque'] === 'Alerta'): ?>
                                                 <span style="color: var(--red); font-size: 11px; font-weight: 700; display: inline-block; margin-top: 3px;">
                                                     <i class="fa-solid fa-circle-exclamation"></i> Nível de alerta atingido! (Mín: <?php echo htmlspecialchars($item['nivel_alerta']); ?>)
+                                                </span>
+                                            <?php endif; ?>
+                                            <?php if ($vencido): ?>
+                                                <span style="color: var(--red); font-size: 11px; font-weight: 700; display: inline-block; margin-top: 3px; <?php echo $item['status_estoque'] === 'Alerta' ? 'margin-left: 8px;' : ''; ?>">
+                                                    <i class="fa-solid fa-calendar-xmark"></i> Vencido em <?php echo date('d/m/Y', strtotime($item['data_validade'])); ?>!
                                                 </span>
                                             <?php endif; ?>
                                         </div>
@@ -215,8 +232,10 @@ $activePage = 'estoque';
                                 <th>Categoria</th>
                                 <th>Quantidade</th>
                                 <th>Unidade</th>
+                                <th>Registrado por</th>
                                 <th>Lote Fabricante</th>
                                 <th>Validade</th>
+                                <th>Status</th>
                                 <th>Custo Unitário</th>
                                 <th>Custo Total</th>
                             </tr>
@@ -225,14 +244,17 @@ $activePage = 'estoque';
                             <?php foreach ($estoque as $item): 
                                 $custo_u = floatval($item['custo_aquisicao'] ?? 0);
                                 $custo_t = $item['quantidade'] * $custo_u;
+                                $vencido = !empty($item['data_validade']) && strtotime($item['data_validade']) < strtotime('today');
                             ?>
                                 <tr>
                                     <td><?php echo htmlspecialchars($item['nome_item']); ?></td>
                                     <td><?php echo htmlspecialchars($item['categoria']); ?></td>
                                     <td><?php echo number_format($item['quantidade'], 2, ',', '.'); ?></td>
                                     <td><?php echo htmlspecialchars($item['unidade_medida']); ?></td>
+                                    <td><?php echo htmlspecialchars($item['nome_registrador']); ?></td>
                                     <td><?php echo htmlspecialchars($item['lote_fabricante'] ?? '—'); ?></td>
                                     <td><?php echo $item['data_validade'] ? date('d/m/Y', strtotime($item['data_validade'])) : '—'; ?></td>
+                                    <td><?php echo $vencido ? 'Vencido' : ($item['status_estoque'] === 'Alerta' ? 'Alerta' : 'Normal'); ?></td>
                                     <td>R$ <?php echo number_format($custo_u, 2, ',', '.'); ?></td>
                                     <td>R$ <?php echo number_format($custo_t, 2, ',', '.'); ?></td>
                                 </tr>

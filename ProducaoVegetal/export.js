@@ -5,8 +5,29 @@
     const style = document.createElement('style');
     style.innerHTML = `
         @media print {
+            html, body, .app-layout, .main-wrapper, .main-content, .content-wrapper {
+                height: auto !important;
+                min-height: 0 !important;
+                max-height: none !important;
+                overflow: visible !important;
+                overflow-x: visible !important;
+                overflow-y: visible !important;
+            }
+            div[style*="overflow"], div[style*="overflow-x"], div[style*="overflow-y"], .svg-container, .table-responsive, table {
+                overflow: visible !important;
+                overflow-x: visible !important;
+                overflow-y: visible !important;
+            }
             .sidebar, .topbar, .overlay, .menu-btn, .btn-logout, .add-btn, .add-btn-filter, .filters-container, .plantio-actions, .crop-actions, .btn-export, .page-header button {
                 display: none !important;
+            }
+            .pillar-panel:not(.active) {
+                display: none !important;
+            }
+            .pillar-panel.active {
+                display: block !important;
+                height: auto !important;
+                overflow: visible !important;
             }
             .main-wrapper {
                 margin-left: 0 !important;
