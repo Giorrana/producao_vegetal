@@ -64,10 +64,8 @@ if (isset($_GET['action'])) {
 }
 
 // Buscar itens do estoque
-$query = "SELECT e.*, u.nome AS nome_registrador FROM estoque e JOIN usuarios u ON e.id_usuario = u.id_usuario WHERE 1=1";
-if ($filtro === 'Semente') {
-    $query .= " AND categoria = 'Semente'";
-} elseif ($filtro === 'Adubo') {
+$query = "SELECT e.*, u.nome AS nome_registrador FROM estoque e JOIN usuarios u ON e.id_usuario = u.id_usuario WHERE categoria IN ('Adubo','Defensivo')";
+if ($filtro === 'Adubo') {
     $query .= " AND categoria = 'Adubo'";
 } elseif ($filtro === 'Defensivo') {
     $query .= " AND categoria = 'Defensivo'";
@@ -155,7 +153,6 @@ $activePage = 'estoque';
                     <!-- FILTROS -->
                     <div class="filters-container">
                         <a href="estoque.php?filtro=Todos<?php echo isset($_GET['action_type']) ? '&action_type=adubar' : ''; ?>" class="filter-btn <?php echo $filtro === 'Todos' ? 'active' : 'inactive'; ?>">Todos</a>
-                        <a href="estoque.php?filtro=Semente<?php echo isset($_GET['action_type']) ? '&action_type=adubar' : ''; ?>" class="filter-btn <?php echo $filtro === 'Semente' ? 'active' : 'inactive'; ?>">Sementes</a>
                         <a href="estoque.php?filtro=Adubo<?php echo isset($_GET['action_type']) ? '&action_type=adubar' : ''; ?>" class="filter-btn <?php echo $filtro === 'Adubo' ? 'active' : 'inactive'; ?>">Adubos</a>
                         <a href="estoque.php?filtro=Defensivo<?php echo isset($_GET['action_type']) ? '&action_type=adubar' : ''; ?>" class="filter-btn <?php echo $filtro === 'Defensivo' ? 'active' : 'inactive'; ?>">Defensivos</a>
                         

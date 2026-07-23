@@ -13,7 +13,6 @@ $msg_erro = "";
 $nome_item = $categoria = $unidade_medida = $lote_fabricante = "";
 $quantidade = $nivel_alerta = $custo_aquisicao = "";
 $data_validade = "";
-$categoria = "Semente";
 $unidade_medida = "Kg";
 
 if ($editId) {
@@ -115,16 +114,14 @@ $activePage = 'estoque';
 
                 <div class="field-card">
                     <label>Nome do Insumo *</label>
-                    <input name="nome_item" type="text" class="form-input" placeholder="Ex: Adubo NPK, Sementes de Milho" required value="<?php echo htmlspecialchars($nome_item); ?>">
+                    <input name="nome_item" type="text" class="form-input" placeholder="Ex: Adubo NPK" required value="<?php echo htmlspecialchars($nome_item); ?>">
                 </div>
 
                 <div class="field-card">
                     <label>Categoria *</label>
                     <select name="categoria" class="form-select" required>
-                        <option value="Semente"   <?php echo $categoria==='Semente'   ? 'selected':''; ?>>Semente</option>
                         <option value="Adubo"     <?php echo $categoria==='Adubo'     ? 'selected':''; ?>>Adubo / Fertilizante</option>
                         <option value="Defensivo" <?php echo $categoria==='Defensivo' ? 'selected':''; ?>>Defensivo Orgânico</option>
-                        <option value="Outros"    <?php echo $categoria==='Outros'    ? 'selected':''; ?>>Outros</option>
                     </select>
                 </div>
 

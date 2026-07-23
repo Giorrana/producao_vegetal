@@ -13,7 +13,7 @@ if (isset($_GET['ajax_dados_manejo']) && isset($_GET['id_plantio'])) {
         echo json_encode(['ok'=>false, 'msg'=>'Acesso negado.']);
         exit;
     }
-    $insumos = $conn->query("SELECT id_item, nome_item, categoria, unidade_medida, quantidade, data_validade FROM estoque WHERE quantidade > 0 ORDER BY nome_item ASC")->fetch_all(MYSQLI_ASSOC);
+    $insumos = $conn->query("SELECT id_item, nome_item, categoria, unidade_medida, quantidade, data_validade FROM estoque WHERE quantidade > 0 AND categoria IN ('Adubo','Defensivo') ORDER BY nome_item ASC")->fetch_all(MYSQLI_ASSOC);
     $ops_sql = e_admin() ? "perfil IN ('admin','operador')" : "perfil = 'operador'";
     $operadores = $conn->query("SELECT id_usuario, nome, perfil FROM usuarios WHERE $ops_sql ORDER BY nome ASC")->fetch_all(MYSQLI_ASSOC);
     echo json_encode(['ok'=>true, 'insumos'=>$insumos, 'operadores'=>$operadores]);
@@ -276,7 +276,7 @@ if ($result) {
 
 // ─── BUSCAR INSUMOS PARA MODAL ──────────────────────────────────────────────
 $insumos_modal = [];
-$res_ins = $conn->query("SELECT id_item, nome_item, categoria, unidade_medida, quantidade, data_validade FROM estoque WHERE quantidade > 0 ORDER BY nome_item ASC");
+$res_ins = $conn->query("SELECT id_item, nome_item, categoria, unidade_medida, quantidade, data_validade FROM estoque WHERE quantidade > 0 AND categoria IN ('Adubo','Defensivo') ORDER BY nome_item ASC");
 if ($res_ins) $insumos_modal = $res_ins->fetch_all(MYSQLI_ASSOC);
 
 // ─── BUSCAR OPERADORES E ADMINS PARA MODAL ──────────────────────────────────
@@ -882,7 +882,6 @@ $activePage = 'plantios';
                     <option value="Irrigacao">💧 Irrigação</option>
                     <option value="Adubacao">🌿 Adubação / Fertilizante</option>
                     <option value="Defensivo">🧪 Aplicação de Defensivo</option>
-                    <option value="Outro">📝 Outro</option>
                 </select>
             </div>
 

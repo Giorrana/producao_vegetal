@@ -18,13 +18,11 @@ $q_mes = mysqli_query($conn, "SELECT MONTH(c.data_colheita) as mes, SUM(c.quanti
 if ($q_mes) { while ($r = mysqli_fetch_assoc($q_mes)) { $mensal[intval($r['mes'])] = floatval($r['total']); } }
 $max_mensal = max(max($mensal), 10);
 
-// Custo total insumos (Admin)
+// Custo total insumos (escoped by user)
 $custo_insumos  = 0;
 $custo_manejo   = 0;
-if (e_admin()) {
-    $qci = $conn->query("SELECT SUM(quantidade * custo_aquisicao) AS t FROM estoque WHERE 1=1"); if ($qci) $custo_insumos  = $qci->fetch_assoc()['t'] ?? 0;
-    $qcm = $conn->query("SELECT SUM(cp.custo_calculado) AS t FROM cuidados_plantio cp JOIN plantios p ON cp.id_plantio = p.id_plantio JOIN culturas cult ON p.id_cultura = cult.id_cultura WHERE " . escopo_sql('cult.id_usuario'));     if ($qcm) $custo_manejo   = $qcm->fetch_assoc()['t'] ?? 0;
-}
+$qci = $conn->query("SELECT SUM(quantidade * custo_aquisicao) AS t FROM estoque WHERE " . escopo_sql('id_usuario')); if ($qci) $custo_insumos = $qci->fetch_assoc()['t'] ?? 0;
+$qcm = $conn->query("SELECT SUM(cp.custo_calculado) AS t FROM cuidados_plantio cp JOIN plantios p ON cp.id_plantio = p.id_plantio JOIN culturas cult ON p.id_cultura = cult.id_cultura WHERE " . escopo_sql('cult.id_usuario'));     if ($qcm) $custo_manejo   = $qcm->fetch_assoc()['t'] ?? 0;
 
 // ── Fitossanitário: Status de plantios ───────────────────────────────────────
 $status_dist = ['Germinação'=>0,'Crescimento'=>0,'Floração'=>0,'Pronto'=>0];
@@ -167,26 +165,20 @@ $activePage = 'relatorios';
                 <!-- ══ PILLAR 1: FINANCEIRO ══════════════════════════════════ -->
                 <div class="pillar-panel active" id="pillar-financeiro">
 
-                    <?php if (!e_admin()): ?>
-                        <div style="background:#fef3c7;color:#d97706;border:1px solid #fcd34d;padding:14px;border-radius:10px;font-weight:700;margin-bottom:20px;">
-                            <i class="fa-solid fa-lock"></i> Visão financeira disponível apenas para Administradores.
+                    <div class="mini-stats">
+                        <div class="mini-stat">
+                            <div class="ms-val">R$ <?php echo number_format($custo_insumos,2,',','.'); ?></div>
+                            <div class="ms-lbl">Custo em Estoque</div>
                         </div>
-                    <?php else: ?>
-                        <div class="mini-stats">
-                            <div class="mini-stat">
-                                <div class="ms-val">R$ <?php echo number_format($custo_insumos,2,',','.'); ?></div>
-                                <div class="ms-lbl">Custo em Estoque</div>
-                            </div>
-                            <div class="mini-stat">
-                                <div class="ms-val">R$ <?php echo number_format($custo_manejo,2,',','.'); ?></div>
-                                <div class="ms-lbl">Custo em Manejos</div>
-                            </div>
-                            <div class="mini-stat">
-                                <div class="ms-val"><?php echo number_format($total_horta+$total_pomar,1,',','.'); ?> kg</div>
-                                <div class="ms-lbl">Total Colhido</div>
-                            </div>
+                        <div class="mini-stat">
+                            <div class="ms-val">R$ <?php echo number_format($custo_manejo,2,',','.'); ?></div>
+                            <div class="ms-lbl">Custo em Manejos</div>
                         </div>
-                    <?php endif; ?>
+                        <div class="mini-stat">
+                            <div class="ms-val"><?php echo number_format($total_horta+$total_pomar,1,',','.'); ?> kg</div>
+                            <div class="ms-lbl">Total Colhido</div>
+                        </div>
+                    </div>
 
                     <div class="export-bar">
                         <button class="btn-export" onclick="exportTableToExcel('tbl-recentes','relatorio_colheitas')">

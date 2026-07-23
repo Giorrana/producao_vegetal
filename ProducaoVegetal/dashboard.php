@@ -38,12 +38,10 @@ if ($q_alerta_validade) {
     }
 }
 
-// --- Custo total de insumos (Admin only) ---
+// --- Custo total de insumos (scoped by user) ---
 $custo_total_insumos = 0;
-if (e_admin()) {
-    $q_custo = mysqli_query($conn, "SELECT SUM(quantidade * custo_aquisicao) AS total FROM estoque WHERE 1=1");
-    if ($q_custo) { $r = mysqli_fetch_assoc($q_custo); $custo_total_insumos = $r['total'] ?? 0; }
-}
+$q_custo = mysqli_query($conn, "SELECT SUM(quantidade * custo_aquisicao) AS total FROM estoque WHERE " . escopo_sql('id_usuario'));
+if ($q_custo) { $r = mysqli_fetch_assoc($q_custo); $custo_total_insumos = $r['total'] ?? 0; }
 
 // --- Últimos 5 meses de dados dinâmicos para estatísticas ---
 $meses_nomes = [1=>'Jan', 2=>'Fev', 3=>'Mar', 4=>'Abr', 5=>'Mai', 6=>'Jun', 7=>'Jul', 8=>'Ago', 9=>'Set', 10=>'Out', 11=>'Nov', 12=>'Dez'];
@@ -198,19 +196,17 @@ $activePage = 'dashboard';
                         </a>
                     </div>
 
-                    <!-- CARD FINANCEIRO (Admin Only) -->
-                    <?php if (e_admin()): ?>
-                        <div style="background:linear-gradient(135deg,#16a34a,#15803d);border-radius:16px;padding:20px;margin-bottom:24px;color:white;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:12px;">
-                            <div>
-                                <div style="font-size:11px;font-weight:800;opacity:.8;text-transform:uppercase;letter-spacing:1px;margin-bottom:4px;"><i class="fa-solid fa-chart-line"></i> Visão Financeira (Admin)</div>
-                                <div style="font-size:22px;font-weight:900;">R$ <?php echo number_format($custo_total_insumos, 2, ',', '.'); ?></div>
-                                <div style="font-size:12px;opacity:.8;margin-top:2px;">Custo total em estoque</div>
-                            </div>
-                            <a href="relatorios.php" style="background:rgba(255,255,255,.15);border:1px solid rgba(255,255,255,.3);color:white;text-decoration:none;padding:10px 18px;border-radius:10px;font-size:13px;font-weight:700;">
-                                Ver Relatórios <i class="fa-solid fa-arrow-right"></i>
-                            </a>
+                    <!-- CARD FINANCEIRO -->
+                    <div style="background:linear-gradient(135deg,#16a34a,#15803d);border-radius:16px;padding:20px;margin-bottom:24px;color:white;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:12px;">
+                        <div>
+                            <div style="font-size:11px;font-weight:800;opacity:.8;text-transform:uppercase;letter-spacing:1px;margin-bottom:4px;"><i class="fa-solid fa-chart-line"></i> Visão Financeira<?php echo e_admin() ? ' (Admin)' : ' (Seus Dados)'; ?></div>
+                            <div style="font-size:22px;font-weight:900;">R$ <?php echo number_format($custo_total_insumos, 2, ',', '.'); ?></div>
+                            <div style="font-size:12px;opacity:.8;margin-top:2px;">Custo total em estoque</div>
                         </div>
-                    <?php endif; ?>
+                        <a href="relatorios.php" style="background:rgba(255,255,255,.15);border:1px solid rgba(255,255,255,.3);color:white;text-decoration:none;padding:10px 18px;border-radius:10px;font-size:13px;font-weight:700;">
+                            Ver Relatórios <i class="fa-solid fa-arrow-right"></i>
+                        </a>
+                    </div>
 
                     <!-- MANEJO RÁPIDO -->
                     <div>

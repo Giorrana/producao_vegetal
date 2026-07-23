@@ -154,10 +154,10 @@ $activePage = 'culturas';
                                             <!-- Estações recomendadas visualizadas de forma elegante -->
                                             <?php 
                                                 $estacoes = [];
-                                                if (!empty($cultura['estacao_primavera'])) $estacoes[] = "Primavera (" . htmlspecialchars($cultura['estacao_primavera']) . ")";
-                                                if (!empty($cultura['estacao_verao'])) $estacoes[] = "Verão (" . htmlspecialchars($cultura['estacao_verao']) . ")";
-                                                if (!empty($cultura['estacao_outono'])) $estacoes[] = "Outono (" . htmlspecialchars($cultura['estacao_outono']) . ")";
-                                                if (!empty($cultura['estacao_inverno'])) $estacoes[] = "Inverno (" . htmlspecialchars($cultura['estacao_inverno']) . ")";
+                                                if (!empty($cultura['estacao_primavera'])) $estacoes[] = "Primavera";
+                                                if (!empty($cultura['estacao_verao'])) $estacoes[] = "Verão";
+                                                if (!empty($cultura['estacao_outono'])) $estacoes[] = "Outono";
+                                                if (!empty($cultura['estacao_inverno'])) $estacoes[] = "Inverno";
                                             ?>
                                             <?php if (count($estacoes) > 0): ?>
                                                 <p style="font-size: 11px; color: var(--text-gray); margin-top: 3px;">
