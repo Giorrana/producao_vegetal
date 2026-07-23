@@ -57,7 +57,7 @@ $activePage = 'relatorios';
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>AgroGestão - Relatórios & 5 Pilares</title>
+    <title>AgroGestão - Relatórios</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;700;900&display=swap" rel="stylesheet">
@@ -136,7 +136,7 @@ $activePage = 'relatorios';
         <header class="topbar">
             <div class="topbar-left">
                 <button class="menu-btn" onclick="toggleMenu()"><i class="fa-solid fa-bars"></i></button>
-                <div class="topbar-title">Relatórios & 5 Pilares</div>
+                <div class="topbar-title">Relatórios</div>
             </div>
         </header>
 
@@ -145,10 +145,10 @@ $activePage = 'relatorios';
 
                 <div class="page-header">
                     <h1>Painel de Gestão Agrícola</h1>
-                    <p>Monitore os 5 pilares fundamentais da produção profissional.</p>
+                    <p>Monitore os 4 pilares fundamentais da produção profissional.</p>
                 </div>
 
-                <!-- 5 PILLARS TABS -->
+                <!-- 4 PILLARS TABS -->
                 <div class="pillars-tabs">
                     <button class="pillar-tab active" onclick="showPillar('financeiro',this)" id="tab-financeiro">
                         <i class="fa-solid fa-chart-line"></i> Financeiro
