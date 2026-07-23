@@ -13,7 +13,7 @@ if (isset($_GET['ajax_dados_manejo']) && isset($_GET['id_plantio'])) {
         echo json_encode(['ok'=>false, 'msg'=>'Acesso negado.']);
         exit;
     }
-    $insumos = $conn->query("SELECT id_item, nome_item, categoria, unidade_medida, quantidade FROM estoque WHERE quantidade > 0 ORDER BY nome_item ASC")->fetch_all(MYSQLI_ASSOC);
+    $insumos = $conn->query("SELECT id_item, nome_item, categoria, unidade_medida, quantidade, data_validade FROM estoque WHERE quantidade > 0 ORDER BY nome_item ASC")->fetch_all(MYSQLI_ASSOC);
     $ops_sql = e_admin() ? "perfil IN ('admin','operador')" : "perfil = 'operador'";
     $operadores = $conn->query("SELECT id_usuario, nome, perfil FROM usuarios WHERE $ops_sql ORDER BY nome ASC")->fetch_all(MYSQLI_ASSOC);
     echo json_encode(['ok'=>true, 'insumos'=>$insumos, 'operadores'=>$operadores]);
@@ -219,8 +219,8 @@ if (isset($_GET['action']) && !e_visitante()) {
                     }
                 }
                 mysqli_begin_transaction($conn);
-                $s1 = $conn->prepare("INSERT INTO colheitas (data_colheita, quantidade_colhida, id_plantio) VALUES (CURRENT_DATE(), ?, ?)");
-                $s1->bind_param("di", $qtd, $id);
+                $s1 = $conn->prepare("INSERT INTO colheitas (data_colheita, quantidade_colhida, id_plantio, id_usuario) VALUES (CURRENT_DATE(), ?, ?, ?)");
+                $s1->bind_param("dii", $qtd, $id, $id_usuario);
                 $s2 = $conn->prepare("UPDATE plantios SET colhido=1, progresso_colheita='100' WHERE id_plantio=?");
                 $s2->bind_param("i", $id);
                 if ($s1->execute() && $s2->execute()) { mysqli_commit($conn); header("Location: historico.php?msg=colheita_sucesso"); exit; }
@@ -991,8 +991,22 @@ $activePage = 'plantios';
                     opt.value = ins.id_item;
                     opt.dataset.cat = ins.categoria;
                     opt.dataset.unit = ins.unidade_medida;
+                    
+                    let isVencido = false;
+                    if (ins.data_validade) {
+                        const today = new Date();
+                        today.setHours(0,0,0,0);
+                        const parts = ins.data_validade.split('-');
+                        const valDate = new Date(parts[0], parts[1]-1, parts[2]);
+                        valDate.setHours(0,0,0,0);
+                        isVencido = valDate < today;
+                    }
+                    if (isVencido) {
+                        opt.disabled = true;
+                    }
+                    
                     const qtyFmt = parseFloat(ins.quantidade).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-                    opt.textContent = `${ins.nome_item} (${qtyFmt} ${ins.unidade_medida} em estoque)`;
+                    opt.textContent = `${ins.nome_item} (${qtyFmt} ${ins.unidade_medida} em estoque)${isVencido ? ' (Vencido)' : ''}`;
                     if (selInsumo) selInsumo.appendChild(opt);
                 });
 

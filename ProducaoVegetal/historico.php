@@ -10,12 +10,13 @@ $id_usuario = $_SESSION['user_id'];
 $filtro = isset($_GET['filtro']) ? $_GET['filtro'] : 'Todos';
 
 // Query das colheitas
-$query = "SELECT c.*, cult.nome_cultura, cat.nome_categoria, u.nome AS nome_registrador 
+$query = "SELECT c.*, cult.nome_cultura, cat.nome_categoria, u.nome AS nome_registrador, u2.nome AS nome_colhedor 
           FROM colheitas c 
           JOIN plantios p ON c.id_plantio = p.id_plantio 
           JOIN culturas cult ON p.id_cultura = cult.id_cultura 
           JOIN categorias cat ON cult.id_categoria = cat.id_categoria
           JOIN usuarios u ON cult.id_usuario = u.id_usuario
+          LEFT JOIN usuarios u2 ON c.id_usuario = u2.id_usuario
           WHERE " . escopo_sql('cult.id_usuario');
 
 if ($filtro === 'Horta') {
@@ -127,6 +128,7 @@ $activePage = 'historico';
                                         <div class="card-meta">
                                             <div><i class="fa-regular fa-calendar-days"></i> <?php echo $data_formatada; ?></div>
                                             <div><i class="fa-solid fa-caret-up"></i> <?php echo htmlspecialchars(number_format($item['quantidade_colhida'], 1, ',', '.')); ?> kg</div>
+                                            <div><i class="fa-solid fa-user"></i> <?php echo htmlspecialchars($item['nome_colhedor'] ?? '—'); ?></div>
                                         </div>
                                     </div>
                                 </div>
@@ -141,6 +143,7 @@ $activePage = 'historico';
                                 <th>Categoria</th>
                                 <th>Data da Colheita</th>
                                 <th>Quantidade (kg)</th>
+                                <th>Colhedor</th>
                             </tr>
                         </thead>
                         <tbody>
@@ -150,6 +153,7 @@ $activePage = 'historico';
                                     <td><?php echo htmlspecialchars($item['nome_categoria']); ?></td>
                                     <td><?php echo date('d/m/Y', strtotime($item['data_colheita'])); ?></td>
                                     <td><?php echo number_format($item['quantidade_colhida'], 2, ',', '.'); ?></td>
+                                    <td><?php echo htmlspecialchars($item['nome_colhedor'] ?? '—'); ?></td>
                                 </tr>
                             <?php endforeach; ?>
                         </tbody>

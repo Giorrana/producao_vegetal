@@ -176,10 +176,14 @@ CREATE TABLE IF NOT EXISTS `colheitas` (
   `data_colheita`     DATE              DEFAULT NULL,
   `quantidade_colhida` DECIMAL(10,2)    DEFAULT NULL,
   `id_plantio`        INT(11)           DEFAULT NULL,
+  `id_usuario`        INT(11)           DEFAULT NULL,
   PRIMARY KEY (`id_colheita`),
   KEY `id_plantio` (`id_plantio`),
+  KEY `id_usuario` (`id_usuario`),
   CONSTRAINT `colheitas_ibfk_1`
-    FOREIGN KEY (`id_plantio`) REFERENCES `plantios` (`id_plantio`)
+    FOREIGN KEY (`id_plantio`) REFERENCES `plantios` (`id_plantio`),
+  CONSTRAINT `fk_colheitas_usuario`
+    FOREIGN KEY (`id_usuario`) REFERENCES `usuarios` (`id_usuario`) ON DELETE SET NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
 -- ─────────────────────────────────────────────────────────────
