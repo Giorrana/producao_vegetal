@@ -232,7 +232,7 @@ if (isset($_GET['action']) && !e_visitante()) {
 
 // ─── BUSCAR PLANTIOS ATIVOS ─────────────────────────────────────────────────
 $id_usuario = $_SESSION['user_id'];
-$query = "SELECT p.*, c.nome_cultura, c.tempo_medio_crescimento, cat.nome_categoria
+$query = "SELECT p.*, c.nome_cultura, c.tempo_medio_crescimento, c.observacoes, cat.nome_categoria
           FROM plantios p
           JOIN culturas c ON p.id_cultura = c.id_cultura
           JOIN categorias cat ON c.id_categoria = cat.id_categoria
@@ -754,6 +754,24 @@ $activePage = 'plantios';
                                     <i class="fa-regular fa-calendar"></i>
                                     DAP: <strong><?php echo $dap; ?></strong> / <?php echo $dias_ciclo; ?> dias &nbsp;&mdash;&nbsp; <?php echo $progresso; ?>% do ciclo
                                 </div>
+
+                                <?php if (!empty($p['observacoes'])): ?>
+                                <!-- Observações da Cultura -->
+                                <div style="
+                                    display:flex;align-items:flex-start;gap:8px;
+                                    background: color-mix(in srgb, var(--primary-green) 8%, var(--card-bg));
+                                    border: 1.5px solid color-mix(in srgb, var(--primary-green) 25%, transparent);
+                                    border-radius: 10px;
+                                    padding: 9px 12px;
+                                    margin-top: 10px;
+                                    font-size: 12px;
+                                    color: var(--text-main);
+                                    line-height: 1.5;
+                                ">
+                                    <i class="fa-solid fa-circle-info" style="color:var(--primary-green);margin-top:2px;flex-shrink:0;"></i>
+                                    <span style="white-space:pre-wrap;"><?php echo htmlspecialchars($p['observacoes']); ?></span>
+                                </div>
+                                <?php endif; ?>
 
                                 <!-- Growth Stepper -->
                                 <div class="growth-stepper">

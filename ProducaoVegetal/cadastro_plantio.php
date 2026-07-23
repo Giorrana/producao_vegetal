@@ -8,7 +8,7 @@ $msg_erro = "";
 
 // Buscar culturas do USUÁRIO atual
 $id_usuario = $_SESSION['user_id'];
-$culturas_query = "SELECT id_cultura, nome_cultura FROM culturas ORDER BY nome_cultura ASC";
+$culturas_query = "SELECT id_cultura, nome_cultura, observacoes FROM culturas ORDER BY nome_cultura ASC";
 $culturas_result = mysqli_query($conn, $culturas_query);
 $culturas = [];
 if ($culturas_result) {
@@ -131,7 +131,9 @@ $activePage = 'plantios';
                     <select name="id_cultura" id="sel-cultura" class="form-select" required <?php echo e_visitante() || count($culturas)===0 ? 'disabled':''; ?>>
                         <option value="">Selecione do Catálogo...</option>
                         <?php foreach ($culturas as $c): ?>
-                            <option value="<?php echo $c['id_cultura']; ?>" data-nome="<?php echo htmlspecialchars($c['nome_cultura']); ?>">
+                            <option value="<?php echo $c['id_cultura']; ?>"
+                                data-nome="<?php echo htmlspecialchars($c['nome_cultura']); ?>"
+                                data-obs="<?php echo htmlspecialchars($c['observacoes'] ?? ''); ?>">
                                 <?php echo htmlspecialchars($c['nome_cultura']); ?>
                             </option>
                         <?php endforeach; ?>
@@ -170,10 +172,25 @@ $activePage = 'plantios';
                     </div>
                 </div>
 
-                <div class="field-card">
-                    <label>Notas do Plantio</label>
-                    <textarea name="notas_plantio" class="form-textarea" placeholder="Ex: Solo adubado com húmus, irrigação por gotejamento." <?php echo e_visitante() ? 'disabled':''; ?>></textarea>
+                <!-- Observações herdadas da Cultura (somente leitura) -->
+                <div class="field-card" id="obs-cultura-card" style="display:none;">
+                    <label style="display:flex;align-items:center;gap:6px;">
+                        <i class="fa-solid fa-circle-info" style="color:var(--primary-green);"></i>
+                        Observações da Cultura
+                    </label>
+                    <div id="obs-cultura-text" style="
+                        background: color-mix(in srgb, var(--primary-green) 8%, var(--card-bg));
+                        border: 1.5px solid color-mix(in srgb, var(--primary-green) 30%, transparent);
+                        border-radius: 10px;
+                        padding: 12px 14px;
+                        font-size: 13px;
+                        color: var(--text-main);
+                        line-height: 1.6;
+                        white-space: pre-wrap;
+                    "></div>
                 </div>
+                <!-- Campo oculto que envia as observações da cultura como notas_plantio -->
+                <input type="hidden" name="notas_plantio" id="hidden-notas" value="">
 
                 <?php if (!e_visitante() && count($culturas) > 0): ?>
                     <button type="submit" class="btn-submit"><i class="fa-solid fa-seedling"></i> Confirmar Plantio</button>
@@ -210,7 +227,28 @@ $activePage = 'plantios';
         preview.style.display='block';
     }
 
-    document.getElementById('sel-cultura')?.addEventListener('change', updateLotePreview);
+    // Exibe as observações da cultura selecionada
+    function updateObsCultura() {
+        const sel = document.getElementById('sel-cultura');
+        const card = document.getElementById('obs-cultura-card');
+        const text = document.getElementById('obs-cultura-text');
+        const hidden = document.getElementById('hidden-notas');
+        if (!sel) return;
+        const opt = sel.options[sel.selectedIndex];
+        const obs = opt?.dataset?.obs || '';
+        hidden.value = obs;
+        if (obs.trim()) {
+            text.textContent = obs;
+            card.style.display = 'block';
+        } else {
+            card.style.display = 'none';
+        }
+    }
+
+    document.getElementById('sel-cultura')?.addEventListener('change', function() {
+        updateLotePreview();
+        updateObsCultura();
+    });
     document.getElementById('inp-canteiro')?.addEventListener('input', updateLotePreview);
 </script>
 </body>
